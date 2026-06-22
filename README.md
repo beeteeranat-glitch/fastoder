@@ -1,36 +1,383 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ระบบสั่งอาหารออนไลน์ผ่าน QR Code
 
-## Getting Started
+## ภาพรวมโครงการ
 
-First, run the development server:
+ระบบสั่งอาหารออนไลน์ผ่าน QR Code สำหรับร้านเครื่องดื่ม ลูกค้าสามารถสแกน QR Code เพื่อเข้าถึงเมนูเครื่องดื่ม เลือกสินค้า ระบุตำแหน่งจัดส่ง และสั่งซื้อผ่านเว็บไซต์ได้ทันที โดยไม่จำเป็นต้องติดตั้งแอปพลิเคชัน
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+ระบบรองรับการจัดส่งภายในรัศมีไม่เกิน **500 เมตร** จากร้าน โดยใช้ข้อมูล GPS ของลูกค้าในการตรวจสอบระยะทางก่อนยืนยันคำสั่งซื้อ
+
+---
+
+## กระบวนการทำงานหลัก (Workflow)
+
+```text
+ลูกค้า
+   ↓
+สแกน QR Code
+   ↓
+เปิดหน้าเมนูร้านอาหาร
+   ↓
+เลือกสินค้า
+   ↓
+แชร์ตำแหน่ง GPS
+   ↓
+ตรวจสอบระยะ ≤ 500 เมตร
+   ↓
+ยืนยันคำสั่งซื้อ
+   ↓
+ร้านรับออเดอร์
+   ↓
+ทำสินค้า
+   ↓
+จัดส่ง
+   ↓
+จบงาน
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ความสามารถของระบบ (Features)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### ฝั่งลูกค้า
 
-## Learn More
+* สแกน QR Code เพื่อเข้าสู่หน้าเมนูร้าน
+* ดูรายการสินค้าและรายละเอียดสินค้า
+* เลือกขนาดและตัวเลือกเพิ่มเติม
+* เพิ่ม Topping และ Add-on
+* เพิ่มสินค้าเข้าตะกร้า
+* ระบุตำแหน่งจัดส่งผ่าน GPS
+* ตรวจสอบพื้นที่จัดส่งอัตโนมัติภายในรัศมี 500 เมตร
+* ยืนยันคำสั่งซื้อ
+* ชำระเงิน
+* ติดตามสถานะคำสั่งซื้อ
 
-To learn more about Next.js, take a look at the following resources:
+### ฝั่งร้านอาหาร
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+* จัดการข้อมูลร้านอาหาร
+* จัดการหมวดหมู่สินค้า
+* จัดการเมนูสินค้า
+* จัดการราคาและตัวเลือกสินค้า
+* รับและตรวจสอบคำสั่งซื้อ
+* ยืนยันหรือยกเลิกออเดอร์
+* อัปเดตสถานะการผลิตสินค้า
+* อัปเดตสถานะการจัดส่ง
+* ดูประวัติคำสั่งซื้อ
+* กำหนดรัศมีพื้นที่ให้บริการ
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## กฎการจัดส่ง (Business Rules)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+* ลูกค้าต้องอนุญาตการเข้าถึงตำแหน่ง (GPS)
+* ระบบจะคำนวณระยะทางระหว่างร้านและลูกค้า
+* ระยะทางต้องไม่เกิน 500 เมตร
+* หากเกินระยะที่กำหนด จะไม่สามารถสั่งซื้อได้
+* คำนวณระยะทางจากค่าพิกัด Latitude และ Longitude
+* รองรับ Google Maps API และ OpenStreetMap
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## สถานะคำสั่งซื้อ (Order Status)
+
+```text
+PENDING
+   ↓
+CONFIRMED
+   ↓
+PREPARING
+   ↓
+READY_FOR_DELIVERY
+   ↓
+DELIVERING
+   ↓
+COMPLETED
+```
+
+กรณียกเลิกคำสั่งซื้อ
+
+```text
+PENDING → CANCELLED
+
+หรือ
+
+CONFIRMED → CANCELLED
+```
+
+---
+
+## หมวดหมู่สินค้า (Product Categories)
+
+### 1. เมนูผลไม้ปั่น (Fruit Smoothie)
+
+* มะนาว
+* แตงโม
+* สับปะรด
+* แอปเปิ้ลแดง
+* แอปเปิ้ลเขียว
+* สตรอเบอร์รี่
+* บลูเบอร์รี่
+* เสาวรส
+* แก้วมังกรขาว
+* ฝรั่ง
+* ส้ม
+* มะม่วง
+* สาลี่
+* แคนตาลูป
+* กล้วยนมสด
+* กล้วยโกโก้
+* แก้วมังกรแดง
+* องุ่น
+* กีวี่
+* มิกซ์เบอร์รี่
+* อะโวคาโดนมสด
+* อะโวคาโดน้ำผึ้ง
+* อะโวคาโดผลไม้
+* ผลไม้รวม
+
+### 2. เมนูน้ำปั่น (Smoothie)
+
+* โค้กปั่น
+* บ๊วยโค้กปั่น
+* ปีโป้นมสด
+* โอรีโอนมสด
+* โกโก้โอรีโอ
+* กล้วยโกโก้โอรีโอ
+* กล้วยนมสดโอรีโอ
+* นมสดสตรอเบอร์รี่
+* กล้วยนมสดสตรอเบอร์รี่
+* โยเกิร์ตปีโป้
+* โยเกิร์ตสตรอเบอร์รี่
+* โยเกิร์ตนมสดโอรีโอ
+* โยเกิร์ตนมสดกล้วย
+* โยเกิร์ตยาคูลท์ปีโป้
+* โยเกิร์ตยาคูลท์ผลไม้
+
+### 3. เมนูมะพร้าวปั่น (Coconut Smoothie)
+
+* มะพร้าวนมสด
+* มะพร้าวนมสดมะม่วง
+* มะพร้าวนมสดสตรอเบอร์รี่
+* มะพร้าวนมสดคาราเมล
+* ชาไทยมะพร้าว
+* ชาเขียวมะพร้าว
+* ชาไต้หวันมะพร้าว
+* โกโก้มะพร้าว
+* กาแฟมะพร้าว
+* โยเกิร์ตมะพร้าว
+
+### 4. เมนูนมสด (Fresh Milk)
+
+* นมสด
+* นมสดโกโก้
+* นมสดกาแฟ
+* นมสดชมพู
+* นมสดชาไทย
+* นมสดชาเขียว
+* นมสดชาไต้หวัน
+* นมสดมอคค่า
+* นมสดคาราเมล
+* นมสดสตรอเบอร์รี่
+* นมสดมิ้นท์
+* นมสดโกโก้มิ้นท์
+* นมสดโกโก้เหนียว
+
+### 5. เมนูชาและเครื่องดื่ม (Tea & Beverage)
+
+* ชาไทย
+* ชาเขียว
+* ชาไต้หวัน
+* โกโก้
+* กาแฟ
+* ชากาแฟ
+* มอคค่า
+* โอวัลติน
+* โอวัลตินภูเขาไฟ
+* ไมโล
+* นมถั่วเหลือง
+* นมชมพู
+* นมเขียว
+* โอเลี้ยง
+* โอเลี้ยงยาคูลท์
+
+### 6. เมนูชา มะนาว โซดา (Tea / Lemon / Soda)
+
+* ชาดอกไม้
+* ชาดำเย็น
+* ชาเขียวดำเย็น
+* ชาเขียวมะนาว
+* ชามะนาว
+* น้ำมะนาว
+* น้ำมะนาวโซดา
+* น้ำผึ้งมะนาว
+* น้ำผึ้งมะนาวโซดา
+* ชาน้ำผึ้งมะนาว
+* น้ำบ๊วย
+* น้ำบ๊วยโซดา
+* ชาบ๊วย
+* น้ำแดงโซดา
+* น้ำเขียวโซดา
+* ลิ้นจี่โซดา
+* สตรอเบอร์รี่โซดา
+* ชาลิ้นจี่
+* ชาสตรอเบอร์รี่
+
+---
+
+## Topping
+
+* ไข่มุก
+* บุกบราวน์ชูการ์
+* วุ้นมะพร้าว
+* เฉาก๊วย
+* เม็ดแมงลัก
+* โอวัลตินภูเขาไฟ
+* โกโก้เหนียว
+
+---
+
+## Options
+
+### ขนาดและรูปแบบ
+
+* ปั่น (+5 บาท)
+* แก้วใหญ่ (+10 บาท)
+
+### Add-on
+
+* ปีโป้
+* เม็ดแมงลัก
+* โอรีโอ
+* ยาคูลท์
+* โยเกิร์ต
+* นมสด
+* น้ำผึ้ง
+* เพิ่มผลไม้
+
+---
+
+## Theme & Branding
+
+ระบบรองรับการเปลี่ยนธีมสีของร้านค้า
+
+### Theme 1 : ฟ้า - ส้ม (Sky Orange)
+
+* Primary Color: #0EA5E9
+* Secondary Color: #F97316
+
+### Theme 2 : แดง - เขียว (Red Green)
+
+* Primary Color: #DC2626
+* Secondary Color: #16A34A
+
+---
+
+## เทคโนโลยีที่ใช้ (Technology Stack)
+
+### Frontend
+
+* React.js
+* Next.js
+* Tailwind CSS
+* PWA (Progressive Web Application)
+
+### Backend
+
+* Node.js
+* NestJS
+* REST API
+
+### Database
+
+* PostgreSQL
+
+### Map & Location Service
+
+* Google Maps API
+* OpenStreetMap
+
+---
+
+## โครงสร้างข้อมูลหลัก (Core Entities)
+
+### Restaurant
+
+* id
+* name
+* address
+* latitude
+* longitude
+* delivery_radius
+
+### Category
+
+* id
+* name
+* description
+
+### Product
+
+* id
+* category_id
+* name
+* description
+* price
+* image_url
+* is_available
+
+### Product Option
+
+* id
+* product_id
+* name
+* additional_price
+
+### Product Topping
+
+* id
+* product_id
+* topping_id
+
+### Customer
+
+* id
+* name
+* phone
+
+### Order
+
+* id
+* order_number
+* customer_id
+* total_amount
+* status
+* created_at
+
+### Order Item
+
+* id
+* order_id
+* product_id
+* quantity
+* unit_price
+
+### Delivery Location
+
+* id
+* order_id
+* latitude
+* longitude
+* distance_meter
+
+---
+
+## เป้าหมายของระบบ
+
+* สั่งซื้อผ่าน QR Code โดยไม่ต้องติดตั้งแอป
+* รองรับเมนูเครื่องดื่มหลายหมวดหมู่
+* รองรับ Topping และ Add-on
+* รองรับการกำหนดราคาตามตัวเลือกสินค้า
+* รองรับธีมสีร้านค้า (ฟ้า-ส้ม และ แดง-เขียว)
+* ตรวจสอบพื้นที่จัดส่งด้วย GPS อัตโนมัติ
+* รองรับการใช้งานบนมือถือและคอมพิวเตอร์
+* ออกแบบให้สามารถขยายระบบในอนาคตได้
+* รองรับการติดตั้งเป็น PWA เพื่อให้ใช้งานเสมือนแอปพลิเคชัน
