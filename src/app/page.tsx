@@ -27,7 +27,7 @@ export default function HomePage() {
             </h1>
             <p className="mt-4 max-w-md text-base leading-relaxed text-[var(--text-muted)] lg:text-lg">
               ไม่ต้องติดตั้งแอป เลือกเมนู เพิ่มท็อปปิ้ง แชร์ตำแหน่ง
-              และติดตามออเดอร์ได้ในที่เดียว
+              และสั่งได้ทันที
             </p>
           </div>
 

@@ -7,7 +7,6 @@ import { useCart } from "@/context/cart-context";
 const NAV_ITEMS = [
   { href: "/menu", label: "เมนู", icon: "🍹" },
   { href: "/cart", label: "ตะกร้า", icon: "🛒" },
-  { href: "/order/demo", label: "ติดตาม", icon: "📦" },
 ];
 
 type NavVariant = "bottom" | "sidebar";
@@ -30,7 +29,7 @@ export function BottomNav({ variant = "bottom" }: { variant?: NavVariant }) {
     >
       <div
         className={
-          isSidebar ? "flex flex-col gap-1.5" : "grid grid-cols-3 gap-1.5"
+          isSidebar ? "flex flex-col gap-1.5" : "grid grid-cols-2 gap-1.5"
         }
       >
         {NAV_ITEMS.map((item) => {

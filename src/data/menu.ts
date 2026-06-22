@@ -239,22 +239,3 @@ export const PRODUCTS = [
     "เปรี้ยวซ่า ดับกระหาย",
   ),
 ];
-
-export const ORDER_STATUS_LABELS: Record<string, string> = {
-  PENDING: "รอร้านยืนยัน",
-  CONFIRMED: "ร้านรับออเดอร์แล้ว",
-  PREPARING: "กำลังทำเครื่องดื่ม",
-  READY_FOR_DELIVERY: "พร้อมจัดส่ง",
-  DELIVERING: "กำลังจัดส่ง",
-  COMPLETED: "จัดส่งสำเร็จ",
-  CANCELLED: "ยกเลิกแล้ว",
-};
-
-export const ORDER_STATUS_STEPS = [
-  "PENDING",
-  "CONFIRMED",
-  "PREPARING",
-  "READY_FOR_DELIVERY",
-  "DELIVERING",
-  "COMPLETED",
-] as const;

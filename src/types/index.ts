@@ -1,14 +1,5 @@
 export type ThemeId = "sky-orange" | "red-green";
 
-export type OrderStatus =
-  | "PENDING"
-  | "CONFIRMED"
-  | "PREPARING"
-  | "READY_FOR_DELIVERY"
-  | "DELIVERING"
-  | "COMPLETED"
-  | "CANCELLED";
-
 export interface Product {
   id: string;
   categoryId: string;

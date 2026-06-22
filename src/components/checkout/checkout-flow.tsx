@@ -310,7 +310,7 @@ export function CheckoutFlow() {
   const handleSubmit = () => {
     if (!canSubmit) return;
     clearCart();
-    router.push("/order/demo");
+    router.push("/menu");
   };
 
   if (items.length === 0) {
