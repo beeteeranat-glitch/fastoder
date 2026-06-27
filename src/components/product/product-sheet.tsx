@@ -62,14 +62,14 @@ export function ProductSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4 md:p-6">
+   <div className="fixed inset-0 z-[999] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4 md:p-6">
       <button
         type="button"
         aria-label="ปิด"
         className="absolute inset-0"
         onClick={onClose}
       />
-      <div className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-5 pb-[calc(env(safe-area-inset-bottom,1rem)+1rem)] shadow-2xl sm:max-w-xl sm:rounded-3xl md:max-w-2xl md:p-6">
+      <div className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-5 pb-[calc(env(safe-area-inset-bottom,1rem)+6rem)] shadow-2xl sm:max-w-xl sm:rounded-3xl md:max-w-2xl md:p-6">
         <div className="mb-4 flex justify-center">
           <MenuItemVisual
             imageUrl={product.imageUrl}
