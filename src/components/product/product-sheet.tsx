@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ADDONS, SIZE_OPTIONS, TOPPINGS } from "@/data/menu";
+import { SIZE_OPTIONS } from "@/data/menu";
 import { useCart } from "@/context/cart-context";
+import { MenuItemVisual } from "@/components/menu/menu-item-visual";
 import { calcItemUnitPrice, formatPrice } from "@/lib/format";
 import type { Addon, Product, Topping } from "@/types";
 
 interface ProductSheetProps {
   product: Product | null;
+  toppings: Topping[];
+  addons: Addon[];
   onClose: () => void;
 }
 
@@ -17,7 +20,12 @@ function toggleItem<T extends { id: string }>(list: T[], item: T) {
     : [...list, item];
 }
 
-export function ProductSheet({ product, onClose }: ProductSheetProps) {
+export function ProductSheet({
+  product,
+  toppings: toppingOptions,
+  addons: addonOptions,
+  onClose,
+}: ProductSheetProps) {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [blended, setBlended] = useState(false);
@@ -62,10 +70,14 @@ export function ProductSheet({ product, onClose }: ProductSheetProps) {
         onClick={onClose}
       />
       <div className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl sm:max-w-xl sm:rounded-3xl md:max-w-2xl md:p-6">
-        <div
-          className={`mb-4 flex h-40 items-center justify-center rounded-3xl bg-gradient-to-br ${product.gradient} text-6xl shadow-inner`}
-        >
-          {product.emoji}
+        <div className="mb-4 flex justify-center">
+          <MenuItemVisual
+            imageUrl={product.imageUrl}
+            emoji={product.emoji}
+            gradient={product.gradient}
+            size="lg"
+            alt={product.name}
+          />
         </div>
 
         <div className="mb-5">
@@ -95,7 +107,7 @@ export function ProductSheet({ product, onClose }: ProductSheetProps) {
 
         <OptionGroup title="Topping">
           <div className="flex flex-wrap gap-2">
-            {TOPPINGS.map((topping) => (
+            {toppingOptions.map((topping) => (
               <ToggleChip
                 key={topping.id}
                 label={`${topping.name} (+${topping.price})`}
@@ -108,7 +120,7 @@ export function ProductSheet({ product, onClose }: ProductSheetProps) {
 
         <OptionGroup title="Add-on">
           <div className="flex flex-wrap gap-2">
-            {ADDONS.map((addon) => (
+            {addonOptions.map((addon) => (
               <ToggleChip
                 key={addon.id}
                 label={`${addon.name} (+${addon.price})`}

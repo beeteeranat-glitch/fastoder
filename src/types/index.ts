@@ -1,5 +1,13 @@
 export type ThemeId = "sky-orange" | "red-green";
 
+export interface Category {
+  id: string;
+  name: string;
+  description: string;
+  emoji: string;
+  imageUrl?: string | null;
+}
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -9,25 +17,26 @@ export interface Product {
   gradient: string;
   emoji: string;
   isAvailable: boolean;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  description: string;
-  emoji: string;
+  isRecommended?: boolean;
+  isNew?: boolean;
+  createdAt?: string;
+  imageUrl?: string | null;
 }
 
 export interface Topping {
   id: string;
   name: string;
   price: number;
+  imageUrl?: string | null;
+  isAvailable?: boolean;
 }
 
 export interface Addon {
   id: string;
   name: string;
   price: number;
+  imageUrl?: string | null;
+  isAvailable?: boolean;
 }
 
 export interface CartItemOptions {

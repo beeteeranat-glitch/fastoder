@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { RESTAURANT } from "@/data/menu";
-import { DELIVERY_MAX_KM } from "@/lib/delivery-fee";
 import { PageShell } from "@/components/layout/page-shell";
+import { HomeMenuHighlights } from "@/components/home/home-menu-highlights";
+import { HomeShopCard, HomeShopCta } from "@/components/home/home-shop-card";
 
 export default function HomePage() {
   return (
@@ -32,35 +31,8 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 space-y-4 lg:mt-0">
-            <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/90 p-5 shadow-lg backdrop-blur sm:p-6">
-              <div className="flex items-center gap-4 sm:gap-5">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-2 border-dashed border-[var(--primary)] bg-[var(--primary)]/5 text-3xl sm:h-24 sm:w-24 sm:text-4xl">
-                  ▦
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-[var(--text)] sm:text-base">
-                    {RESTAURANT.name}
-                  </p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)] sm:text-sm">
-                    จัดส่ง 1–{DELIVERY_MAX_KM} กม. ค่าส่งตามระยะทาง
-                  </p>
-                  <p className="mt-2 inline-flex rounded-full bg-[var(--secondary)]/15 px-2.5 py-1 text-[11px] font-semibold text-[var(--secondary)]">
-                    สแกนแล้ว — พร้อมสั่ง
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <Link
-              href="/menu"
-              className="btn-primary flex w-full items-center justify-center px-5 py-4 text-base sm:text-lg"
-            >
-              เข้าสู่เมนูร้าน
-            </Link>
-
-            <p className="text-center text-xs text-[var(--text-muted)]">
-              UI ตัวอย่าง — ยังไม่เชื่อมฐานข้อมูล
-            </p>
+            <HomeShopCard />
+            <HomeShopCta />
           </div>
         </div>
       </main>

@@ -6,7 +6,7 @@ export const RESTAURANT = {
   address: "123 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110",
   latitude: 13.7563,
   longitude: 100.5018,
-  deliveryRadius: 10_000,
+  deliveryRadius: 2_000,
 };
 
 export const TOPPINGS = [

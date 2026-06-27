@@ -11,13 +11,17 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { DELIVERY_MAX_KM } from "@/lib/delivery-fee";
+import {
+  formatDistance,
+} from "@/lib/delivery-fee";
 import { searchAddress, type AddressSearchResult } from "@/lib/reverse-geocode";
 
 type LocationMapPickerProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: (latitude: number, longitude: number) => void;
+  maxMeters: number;
+  deliveryRangeLabel: string;
   restaurant: {
     name: string;
     latitude: number;
@@ -76,6 +80,8 @@ export function LocationMapPicker({
   open,
   onClose,
   onConfirm,
+  maxMeters,
+  deliveryRangeLabel,
   restaurant,
   initialPosition,
 }: LocationMapPickerProps) {
@@ -153,8 +159,8 @@ export function LocationMapPicker({
             เลือกจุดจัดส่งบนแผนที่
           </h3>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            ค้นหาซอย/ถนน หรือแตะบนแผนที่ — วงกลมสีฟ้าคือเขตจัดส่ง {DELIVERY_MAX_KM}{" "}
-            กม.
+            ค้นหาซอย/ถนน หรือแตะบนแผนที่ — วงกลมสีฟ้าคือเขตจัดส่ง{" "}
+            {deliveryRangeLabel}
           </p>
           <div className="relative z-30 mt-3">
             <input
@@ -213,7 +219,7 @@ export function LocationMapPicker({
             />
             <Circle
               center={[restaurant.latitude, restaurant.longitude]}
-              radius={DELIVERY_MAX_KM * 1000}
+              radius={maxMeters}
               pathOptions={{
                 color: "#3b82f6",
                 fillColor: "#3b82f6",

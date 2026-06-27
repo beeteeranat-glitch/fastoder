@@ -1,3 +1,9 @@
+import {
+  formatPhoneInput,
+  isValidPhone,
+  normalizePhone,
+} from "@/lib/phone";
+
 export type PromoDefinition = {
   code: string;
   label: string;
@@ -5,16 +11,10 @@ export type PromoDefinition = {
   value: number;
 };
 
-export type ReferrerDefinition = {
-  code: string;
-  name: string;
-  rewardAmount: number;
-};
-
 export const PROMO_CODES: Record<string, PromoDefinition> = {
   SMOOTHIE10: {
     code: "SMOOTHIE10",
-    label: "ลด 10% ค่าอาหาร",
+    label: "ลด 10% ค่าเครื่องดื่ม",
     type: "percent_food",
     value: 10,
   },
@@ -26,54 +26,31 @@ export const PROMO_CODES: Record<string, PromoDefinition> = {
   },
   FREESHIP: {
     code: "FREESHIP",
-    label: "ส่งฟรี",
+    label: "จัดส่งฟรี",
     type: "free_delivery",
     value: 0,
   },
 };
 
-export const REFERRERS: Record<string, ReferrerDefinition> = {
-  "REF-AOM": {
-    code: "REF-AOM",
-    name: "อ้อม",
-    rewardAmount: 20,
-  },
-  "REF-BEW": {
-    code: "REF-BEW",
-    name: "บิว",
-    rewardAmount: 20,
-  },
-  "0812345678": {
-    code: "0812345678",
-    name: "สมชาย",
-    rewardAmount: 15,
-  },
-};
+export function sanitizeReferrerPhoneInput(value: string) {
+  return formatPhoneInput(value);
+}
+
+export function isValidReferrerPhone(phone: string) {
+  return isValidPhone(phone);
+}
+
+export function normalizeReferrerPhone(value: string) {
+  return normalizePhone(value);
+}
 
 export function normalizeCode(value: string) {
   return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
-export function normalizeReferrerCode(value: string) {
-  const trimmed = value.trim();
-  if (/^0\d{8,9}$/.test(trimmed.replace(/\D/g, ""))) {
-    return trimmed.replace(/\D/g, "");
-  }
-  return normalizeCode(trimmed);
-}
-
 export function lookupPromo(code: string) {
   const key = normalizeCode(code);
   return PROMO_CODES[key] ?? null;
-}
-
-export function lookupReferrer(code: string) {
-  const phone = code.trim().replace(/\D/g, "");
-  if (/^0\d{8,9}$/.test(phone)) {
-    return REFERRERS[phone] ?? null;
-  }
-  const key = normalizeCode(code);
-  return REFERRERS[key] ?? null;
 }
 
 export function calcOrderDiscounts({

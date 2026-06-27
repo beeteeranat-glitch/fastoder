@@ -6,11 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "node scripts/apply-schema.mjs",
+    "db:migrate:008": "node scripts/apply-single-migration.mjs 008_referrers_customers.sql",
+    "db:migrate:009": "node scripts/apply-single-migration.mjs 009_loyalty_customer_auth.sql",
+    "db:migrate:011": "node scripts/apply-single-migration.mjs 011_customer_address.sql"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "leaflet": "^1.9.4",
     "next": "16.2.9",
+    "postgres": "^3.4.9",
+    "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-leaflet": "^5.0.0"
@@ -19,6 +26,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

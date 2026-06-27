@@ -1,5 +1,6 @@
 import type { Product } from "@/types";
 import { formatPrice } from "@/lib/format";
+import { MenuItemVisual } from "@/components/menu/menu-item-visual";
 
 interface ProductCardProps {
   product: Product;
@@ -9,23 +10,22 @@ interface ProductCardProps {
 export function ProductCard({ product, onSelect }: ProductCardProps) {
   return (
     <article className="menu-row group flex items-center gap-3 p-3 sm:gap-4 sm:p-3.5">
-      <div
-        className={`relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] sm:h-16 sm:w-16 ${product.gradient}`}
-        aria-hidden
-      >
-        <span className="text-2xl drop-shadow-sm transition group-hover:scale-110 sm:text-3xl">
-          {product.emoji}
-        </span>
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
-      </div>
+      <MenuItemVisual
+        imageUrl={product.imageUrl}
+        emoji={product.emoji}
+        gradient={product.gradient}
+        alt={product.name}
+      />
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-[var(--text)] sm:text-[15px]">
           {product.name}
         </p>
-        <p className="mt-0.5 hidden truncate text-xs text-[var(--text-muted)] sm:block">
-          {product.description}
-        </p>
+        {product.description ? (
+          <p className="mt-0.5 line-clamp-2 text-xs text-[var(--text-muted)]">
+            {product.description}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">

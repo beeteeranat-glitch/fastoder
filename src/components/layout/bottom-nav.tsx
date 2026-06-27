@@ -29,7 +29,9 @@ export function BottomNav({ variant = "bottom" }: { variant?: NavVariant }) {
     >
       <div
         className={
-          isSidebar ? "flex flex-col gap-1.5" : "grid grid-cols-2 gap-1.5"
+          isSidebar
+            ? "flex flex-col gap-1.5"
+            : "grid grid-cols-2 gap-1.5"
         }
       >
         {NAV_ITEMS.map((item) => {

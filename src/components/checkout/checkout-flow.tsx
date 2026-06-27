@@ -1,31 +1,48 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RESTAURANT } from "@/data/menu";
 import { useCart } from "@/context/cart-context";
+import { useCustomerAuth } from "@/context/customer-auth-context";
+import { useShop } from "@/context/shop-context";
 import {
   calcCartTotal,
   calcDistanceMeters,
+  calcItemUnitPrice,
   formatPrice,
 } from "@/lib/format";
 import { reverseGeocode } from "@/lib/reverse-geocode";
 import { formatDeliveryAddress } from "@/lib/format-address";
 import {
-  calcDeliveryFee,
-  DELIVERY_MAX_KM,
+  calcDeliveryFeeFromSettings,
+  DEFAULT_DELIVERY_SETTINGS,
+  formatDeliveryRangeFromSettings,
   formatDistance,
-  getDeliveryFeeLabel,
-  isDeliverable,
+  getDeliveryFeeLabelFromSettings,
+  isDeliverableFromSettings,
+  type DeliverySettings,
 } from "@/lib/delivery-fee";
 import {
   calcOrderDiscounts,
-  lookupPromo,
-  lookupReferrer,
+  isValidReferrerPhone,
+  normalizeReferrerPhone,
+  sanitizeReferrerPhoneInput,
   type PromoDefinition,
-  type ReferrerDefinition,
 } from "@/lib/promotions";
+import type { ReferrerDefinition } from "@/lib/referrer-lookup";
+import {
+  calcFreeDrinkDiscount,
+  FREE_DRINK_POINTS,
+} from "@/lib/points-data";
+import {
+  formatPhoneInput,
+  isValidPhone,
+  normalizePhone,
+  PHONE_INPUT_MAX_LENGTH,
+  PHONE_PLACEHOLDER,
+} from "@/lib/phone";
 
 const LocationMapPicker = dynamic(
   () =>
@@ -47,25 +64,19 @@ type CustomerLocation = {
   source: "gps" | "map";
 };
 
-const BANK_ACCOUNT = {
-  bank: "กสิกรไทย",
-  accountNumber: "123-4-56789-0",
-  accountName: "สมูทตี้สดใส",
-};
-
 const ACCEPTED_SLIP_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export function CheckoutFlow() {
   const router = useRouter();
+  const { shop } = useShop();
+  const { customer, refresh: refreshCustomer } = useCustomerAuth();
   const { items, clearCart } = useCart();
   const total = calcCartTotal(items);
 
   const [locationState, setLocationState] = useState<LocationState>("idle");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">(
-    "cash",
-  );
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash");
   const [customerLocation, setCustomerLocation] =
     useState<CustomerLocation | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
@@ -84,7 +95,73 @@ export function CheckoutFlow() {
   const [appliedReferrer, setAppliedReferrer] =
     useState<ReferrerDefinition | null>(null);
   const [referrerError, setReferrerError] = useState<string | null>(null);
+  const [referrerLoading, setReferrerLoading] = useState(false);
+  const [useFreeDrinkReward, setUseFreeDrinkReward] = useState(false);
+  const [freeDrinkCartItemId, setFreeDrinkCartItemId] = useState<string | null>(
+    null,
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [phoneCustomer, setPhoneCustomer] = useState<{ points: number } | null>(
+    null,
+  );
+  const [phoneCustomerLoading, setPhoneCustomerLoading] = useState(false);
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySettings>(
+    DEFAULT_DELIVERY_SETTINGS,
+  );
   const slipInputRef = useRef<HTMLInputElement>(null);
+  const profilePrefilledRef = useRef(false);
+
+  useEffect(() => {
+    if (!customer || profilePrefilledRef.current) return;
+    profilePrefilledRef.current = true;
+
+    setCustomerName((prev) => prev.trim() || customer.name);
+    setCustomerPhone(
+      (prev) => prev.trim() || formatPhoneInput(customer.phone),
+    );
+    if (customer.defaultAddress?.trim()) {
+      setStreetDetail(
+        (prev) => prev.trim() || customer.defaultAddress!.trim(),
+      );
+    }
+  }, [customer]);
+
+  useEffect(() => {
+    if (!isValidPhone(customerPhone)) {
+      setPhoneCustomer(null);
+      return;
+    }
+
+    const phone = normalizePhone(customerPhone);
+    setPhoneCustomerLoading(true);
+    const timer = window.setTimeout(() => {
+      void fetch(`/api/customer/lookup?phone=${encodeURIComponent(phone)}`, {
+        cache: "no-store",
+      })
+        .then((res) => res.json())
+        .then((data: { customer?: { points?: number } | null }) => {
+          setPhoneCustomer(
+            data.customer ? { points: data.customer.points ?? 0 } : null,
+          );
+        })
+        .catch(() => setPhoneCustomer(null))
+        .finally(() => setPhoneCustomerLoading(false));
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [customerPhone]);
+
+  useEffect(() => {
+    void fetch("/api/delivery-settings", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: DeliverySettings) => {
+        if (data?.maxMeters && data?.tiers?.length) {
+          setDeliverySettings(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!slipFile) {
@@ -99,17 +176,22 @@ export function CheckoutFlow() {
   const distance = useMemo(() => {
     if (!customerLocation) return null;
     return calcDistanceMeters(
-      RESTAURANT.latitude,
-      RESTAURANT.longitude,
+      shop.latitude,
+      shop.longitude,
       customerLocation.latitude,
       customerLocation.longitude,
     );
-  }, [customerLocation]);
+  }, [customerLocation, shop.latitude, shop.longitude]);
 
-  const inRange = distance !== null && isDeliverable(distance);
+  const inRange =
+    distance !== null && isDeliverableFromSettings(distance, deliverySettings);
 
   const deliveryFee =
-    distance !== null ? calcDeliveryFee(distance) : null;
+    distance !== null
+      ? calcDeliveryFeeFromSettings(distance, deliverySettings)
+      : null;
+
+  const deliveryRangeLabel = formatDeliveryRangeFromSettings(deliverySettings);
 
   const discounts = useMemo(
     () =>
@@ -121,20 +203,117 @@ export function CheckoutFlow() {
     [total, deliveryFee, appliedPromo],
   );
 
+  const availablePoints = phoneCustomer?.points ?? 0;
+
+  const canRedeemFreeDrink =
+    phoneCustomer !== null && availablePoints >= FREE_DRINK_POINTS;
+
+  const defaultFreeDrinkItem = useMemo(() => {
+    if (items.length === 0) return null;
+    return items.reduce((best, item) =>
+      item.basePrice * item.quantity > best.basePrice * best.quantity
+        ? item
+        : best,
+    );
+  }, [items]);
+
+  const selectedFreeDrinkItem = useMemo(() => {
+    if (!freeDrinkCartItemId) return defaultFreeDrinkItem;
+    return items.find((item) => item.id === freeDrinkCartItemId) ?? defaultFreeDrinkItem;
+  }, [freeDrinkCartItemId, items, defaultFreeDrinkItem]);
+
+  useEffect(() => {
+    if (!defaultFreeDrinkItem) {
+      setFreeDrinkCartItemId(null);
+      setUseFreeDrinkReward(false);
+      return;
+    }
+    setFreeDrinkCartItemId((current) => {
+      if (current && items.some((item) => item.id === current)) return current;
+      return defaultFreeDrinkItem.id;
+    });
+  }, [defaultFreeDrinkItem, items]);
+
+  useEffect(() => {
+    if (!canRedeemFreeDrink) setUseFreeDrinkReward(false);
+  }, [canRedeemFreeDrink]);
+
+  const rewardDiscount = useMemo(() => {
+    if (!useFreeDrinkReward || !selectedFreeDrinkItem) return 0;
+    return calcFreeDrinkDiscount(
+      selectedFreeDrinkItem.basePrice,
+      selectedFreeDrinkItem.quantity,
+    );
+  }, [useFreeDrinkReward, selectedFreeDrinkItem]);
+
   const subtotal =
     deliveryFee !== null ? total + deliveryFee : total;
 
-  const payableTotal = Math.max(0, subtotal - discounts.totalDiscount);
+  const payableTotal = Math.max(
+    0,
+    subtotal - discounts.totalDiscount - rewardDiscount,
+  );
 
   const deliveryAddress = useMemo(() => {
-    if (!customerLocation?.areaAddress) return null;
+    if (!customerLocation) return null;
+
+    const area = customerLocation.areaAddress?.trim() ?? "";
+    const street = streetDetail.trim();
+    const house = addressDetail.trim();
+    const geocodedHouse = customerLocation.houseNumber?.trim() ?? "";
+
+    if (!area && !street && !house && !geocodedHouse) return null;
+
     return formatDeliveryAddress({
       houseDetail: addressDetail,
       streetLine: streetDetail,
-      areaAddress: customerLocation.areaAddress,
+      areaAddress: area,
       geocodedHouseNumber: customerLocation.houseNumber,
     });
   }, [addressDetail, streetDetail, customerLocation]);
+
+  const submitBlockers = useMemo(() => {
+    const blockers: string[] = [];
+
+    if (!customerName.trim()) blockers.push("กรอกชื่อ");
+    if (!isValidPhone(customerPhone)) {
+      blockers.push("กรอกเบอร์โทรให้ถูกต้อง (10 หลัก)");
+    }
+    if (!customerLocation) {
+      blockers.push("เลือกตำแหน่งจัดส่ง (GPS หรือแผนที่)");
+    } else {
+      if (!inRange) blockers.push("ตำแหน่งอยู่นอกพื้นที่จัดส่ง");
+      if (addressLoading) blockers.push("รอระบบค้นหาที่อยู่");
+      if (
+        !addressDetail.trim() &&
+        !streetDetail.trim() &&
+        !customerLocation.areaAddress?.trim() &&
+        !customerLocation.houseNumber?.trim()
+      ) {
+        blockers.push("กรอกบ้านเลขที่หรือรายละเอียดที่อยู่");
+      } else if (!deliveryAddress?.trim()) {
+        blockers.push("กรอกรายละเอียดที่อยู่ให้ครบ");
+      }
+    }
+    if (paymentMethod === "transfer" && !slipFile) {
+      blockers.push("แนบสลิปโอนเงิน");
+    }
+
+    return blockers;
+  }, [
+    customerName,
+    customerPhone,
+    customerLocation,
+    inRange,
+    addressLoading,
+    addressDetail,
+    streetDetail,
+    deliveryAddress,
+    paymentMethod,
+    slipFile,
+  ]);
+
+  const canSubmit = submitBlockers.length === 0;
 
   const resolveAddress = async (latitude: number, longitude: number) => {
     setAddressLoading(true);
@@ -233,7 +412,7 @@ export function CheckoutFlow() {
 
   const handlePaymentChange = (method: "cash" | "transfer") => {
     setPaymentMethod(method);
-    if (method === "cash") {
+    if (method !== "transfer") {
       setSlipFile(null);
       setSlipError(null);
       if (slipInputRef.current) slipInputRef.current.value = "";
@@ -263,15 +442,36 @@ export function CheckoutFlow() {
     if (slipInputRef.current) slipInputRef.current.value = "";
   };
 
-  const applyPromoCode = () => {
-    const promo = lookupPromo(promoInput);
-    if (!promo) {
+  const applyPromoCode = async () => {
+    if (!promoInput.trim()) {
       setAppliedPromo(null);
-      setPromoError("โค้ดโปรโมชั่นไม่ถูกต้อง");
+      setPromoError("กรุณากรอกโค้ด");
       return;
     }
-    setAppliedPromo(promo);
-    setPromoError(null);
+
+    try {
+      const response = await fetch("/api/promos/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoInput, foodTotal: total }),
+      });
+      const data = (await response.json()) as {
+        promo?: PromoDefinition;
+        error?: string;
+      };
+
+      if (!response.ok || !data.promo) {
+        setAppliedPromo(null);
+        setPromoError(data.error ?? "โค้ดโปรโมชั่นไม่ถูกต้อง");
+        return;
+      }
+
+      setAppliedPromo(data.promo);
+      setPromoError(null);
+    } catch {
+      setAppliedPromo(null);
+      setPromoError("ตรวจสอบโค้ดไม่สำเร็จ");
+    }
   };
 
   const clearPromoCode = () => {
@@ -280,15 +480,40 @@ export function CheckoutFlow() {
     setPromoError(null);
   };
 
-  const applyReferrerCode = () => {
-    const referrer = lookupReferrer(referrerInput);
-    if (!referrer) {
+  const applyReferrerCode = async () => {
+    const phone = normalizeReferrerPhone(referrerInput);
+    if (!isValidReferrerPhone(phone)) {
       setAppliedReferrer(null);
-      setReferrerError("ไม่พบรหัสคนแนะนำ ลอง REF-AOM หรือเบอร์โทร");
+      setReferrerError("กรุณากรอกเบอร์โทรให้ถูกต้อง (10 หลัก ขึ้นต้นด้วย 0)");
       return;
     }
-    setAppliedReferrer(referrer);
+
+    setReferrerLoading(true);
     setReferrerError(null);
+
+    try {
+      const response = await fetch(
+        `/api/referrers/lookup?phone=${encodeURIComponent(phone)}`,
+      );
+      const data = (await response.json()) as {
+        referrer?: ReferrerDefinition;
+        error?: string;
+      };
+
+      if (!response.ok || !data.referrer) {
+        setAppliedReferrer(null);
+        setReferrerError(data.error ?? "ไม่พบเบอร์ผู้แนะนำในระบบ");
+        return;
+      }
+
+      setReferrerInput(formatPhoneInput(phone));
+      setAppliedReferrer(data.referrer);
+    } catch {
+      setAppliedReferrer(null);
+      setReferrerError("ตรวจสอบเบอร์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setReferrerLoading(false);
+    }
   };
 
   const clearReferrerCode = () => {
@@ -297,20 +522,126 @@ export function CheckoutFlow() {
     setReferrerError(null);
   };
 
-  const canSubmit =
-    Boolean(
-      customerName &&
-        customerPhone &&
-        customerLocation &&
-        addressDetail.trim() &&
-        deliveryAddress &&
-        inRange,
-    ) && (paymentMethod === "cash" || Boolean(slipFile));
+  const handleSubmit = async () => {
+    if (
+      !canSubmit ||
+      submitting ||
+      !customerLocation ||
+      !deliveryAddress ||
+      deliveryFee === null ||
+      distance === null
+    ) {
+      return;
+    }
 
-  const handleSubmit = () => {
-    if (!canSubmit) return;
-    clearCart();
-    router.push("/menu");
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      let paymentSlipUrl: string | null = null;
+
+      if (paymentMethod === "transfer") {
+        if (!slipFile) {
+          throw new Error("กรุณาแนบสลิปโอนเงิน");
+        }
+
+        const slipForm = new FormData();
+        slipForm.append("file", slipFile);
+        const slipRes = await fetch("/api/payment-slips/upload", {
+          method: "POST",
+          body: slipForm,
+        });
+        const slipData = (await slipRes.json()) as {
+          url?: string;
+          error?: string;
+        };
+        if (!slipRes.ok || !slipData.url) {
+          throw new Error(slipData.error ?? "อัปโหลดสลิปไม่สำเร็จ");
+        }
+        paymentSlipUrl = slipData.url;
+      }
+
+      const mappedItems = items.map((item) => {
+            const unitPrice = calcItemUnitPrice(
+              item.basePrice,
+              item.options,
+              item.toppings,
+              item.addons,
+            );
+            return {
+              cartItemId: item.id,
+              productId: item.productId,
+              productName: item.name,
+              quantity: item.quantity,
+              basePrice: item.basePrice,
+              unitPrice,
+              options: item.options,
+              toppings: item.toppings,
+              addons: item.addons,
+              lineTotal: unitPrice * item.quantity,
+            };
+          });
+
+      if (useFreeDrinkReward && selectedFreeDrinkItem) {
+        const selectedIndex = mappedItems.findIndex(
+          (item) => item.cartItemId === selectedFreeDrinkItem.id,
+        );
+        if (selectedIndex > 0) {
+          const [selected] = mappedItems.splice(selectedIndex, 1);
+          mappedItems.unshift(selected);
+        }
+      }
+
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName,
+          customerPhone: normalizePhone(customerPhone),
+          customerNote: note.trim() || null,
+          deliveryAddress,
+          deliveryLatitude: customerLocation.latitude,
+          deliveryLongitude: customerLocation.longitude,
+          distanceMeters: distance,
+          foodTotal: total,
+          deliveryFee,
+          discountTotal: discounts.totalDiscount,
+          payableTotal,
+          paymentMethod,
+          paymentSlipUrl,
+          promoCode: appliedPromo?.code ?? null,
+          referrerCode: appliedReferrer?.code ?? null,
+          useFreeDrinkReward,
+          freeDrinkProductId: selectedFreeDrinkItem?.productId ?? null,
+          items: mappedItems.map(({ cartItemId: _cartItemId, ...item }) => item),
+        }),
+      });
+
+      const data = (await response.json()) as {
+        error?: string;
+        orderNumber?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error ?? "สั่งซื้อไม่สำเร็จ");
+      }
+
+      if (!data.orderNumber) {
+        throw new Error("สั่งซื้อไม่สำเร็จ");
+      }
+
+      clearCart();
+      if (useFreeDrinkReward) void refreshCustomer();
+
+      router.replace(
+        `/order-success?orderNumber=${encodeURIComponent(data.orderNumber)}&total=${payableTotal}`,
+      );
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "สั่งซื้อไม่สำเร็จ",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (items.length === 0) {
@@ -336,11 +667,10 @@ export function CheckoutFlow() {
             onChange={setCustomerName}
             placeholder="ชื่อสำหรับจัดส่ง"
           />
-          <Field
+          <PhoneField
             label="เบอร์โทร"
             value={customerPhone}
             onChange={setCustomerPhone}
-            placeholder="08x-xxx-xxxx"
           />
           <Field
             label="หมายเหตุ"
@@ -356,7 +686,7 @@ export function CheckoutFlow() {
           ตำแหน่งจัดส่ง
         </h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          จัดส่งได้ในระยะ 1–{DELIVERY_MAX_KM} กม. ค่าส่งคิดตามระยะทาง
+          จัดส่งได้ในระยะ {deliveryRangeLabel} ค่าส่งคิดตามระยะทาง
         </p>
 
         <div className="mt-4 rounded-2xl bg-[var(--surface-muted)] p-4">
@@ -364,10 +694,33 @@ export function CheckoutFlow() {
             ร้าน
           </p>
           <p className="mt-1 font-semibold text-[var(--text)]">
-            {RESTAURANT.name}
+            {shop.name}
           </p>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {RESTAURANT.address}
+            {shop.address}
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-[var(--text-muted)]">
+              ที่อยู่จัดส่ง
+            </span>
+            {customer?.defaultAddress ? (
+              <span className="mb-2 block text-xs font-medium text-[var(--primary)]">
+                ดึงจากบัญชีของคุณ — แก้ไขได้
+              </span>
+            ) : null}
+            <textarea
+              value={streetDetail}
+              onChange={(e) => setStreetDetail(e.target.value)}
+              rows={3}
+              placeholder="บ้านเลขที่ ซอย ถนน แขวง/ตำบล"
+              className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-3 text-sm text-[var(--text)] outline-none ring-[var(--primary)] focus:ring-2"
+            />
+          </label>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            เลือก GPS หรือแผนที่ด้านล่างเพื่อคำนวณระยะทางและค่าส่ง
           </p>
         </div>
 
@@ -394,13 +747,15 @@ export function CheckoutFlow() {
         <LocationMapPicker
           open={mapOpen}
           onClose={() => setMapOpen(false)}
+          maxMeters={deliverySettings.maxMeters}
+          deliveryRangeLabel={deliveryRangeLabel}
           onConfirm={(latitude, longitude) =>
             applyLocation(latitude, longitude, "map", 0, true)
           }
           restaurant={{
-            name: RESTAURANT.name,
-            latitude: RESTAURANT.latitude,
-            longitude: RESTAURANT.longitude,
+            name: shop.name,
+            latitude: shop.latitude,
+            longitude: shop.longitude,
           }}
           initialPosition={
             customerLocation
@@ -441,19 +796,13 @@ export function CheckoutFlow() {
             </div>
 
             <Field
-              label="เพิ่มเติมให้คนไปส่ง (รายละเอียด)"
-              value={streetDetail}
-              onChange={setStreetDetail}
-              placeholder="เช่น ซอย 3 ปากซอยร้านป้าแดง ตึกสีขาว"
-            />
-            <Field
-              label="บ้านเลขที่ / อาคาร / ชั้น"
+              label="บ้านเลขที่ / อาคาร / ชั้น (ถ้ามีเพิ่ม)"
               value={addressDetail}
               onChange={setAddressDetail}
               placeholder="เช่น 88/12 ชั้น 3"
             />
 
-            {deliveryAddress && addressDetail.trim() ? (
+            {deliveryAddress ? (
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm">
                 <p className="text-xs font-semibold text-[var(--text-muted)]">
                   ที่อยู่จัดส่ง
@@ -462,7 +811,11 @@ export function CheckoutFlow() {
                   {deliveryAddress}
                 </p>
               </div>
-            ) : null}
+            ) : (
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                กรอกบ้านเลขที่หรือรายละเอียดที่อยู่เพื่อยืนยันคำสั่งซื้อ
+              </p>
+            )}
           </div>
         ) : null}
 
@@ -483,13 +836,13 @@ export function CheckoutFlow() {
             {inRange && deliveryFee !== null ? (
               <>
                 ✓ ระยะทาง {formatDistance(distance)}
-                {getDeliveryFeeLabel(distance)
-                  ? ` (${getDeliveryFeeLabel(distance)})`
+                {getDeliveryFeeLabelFromSettings(distance, deliverySettings)
+                  ? ` (${getDeliveryFeeLabelFromSettings(distance, deliverySettings)})`
                   : ""}{" "}
                 — ค่าส่ง {formatPrice(deliveryFee)}
               </>
             ) : (
-              `✕ ระยะทาง ${formatDistance(distance)} — จัดส่งได้สูงสุด ${DELIVERY_MAX_KM} กม.`
+              `✕ ระยะทาง ${formatDistance(distance)} — จัดส่งได้ในระยะ ${deliveryRangeLabel}`
             )}
           </div>
         ) : null}
@@ -500,7 +853,7 @@ export function CheckoutFlow() {
           โปรโมชั่น & คนแนะนำ
         </h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          ใส่โค้ดส่วนลดได้ทันที — คนแนะนำจะได้รับส่วนลดในออเดอร์ถัดไป
+          ใส่โค้ดส่วนลดได้ทันที — ผู้แนะนำจะได้รับคะแนน
         </p>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -513,7 +866,7 @@ export function CheckoutFlow() {
                 setPromoError(null);
               }}
               placeholder="เช่น SMOOTHIE10, SAVE20"
-              onApply={applyPromoCode}
+              onApply={() => void applyPromoCode()}
               onClear={appliedPromo ? clearPromoCode : undefined}
               applyLabel={appliedPromo ? "เปลี่ยน" : "ใช้โค้ด"}
               disabled={Boolean(appliedPromo)}
@@ -534,33 +887,130 @@ export function CheckoutFlow() {
 
           <div className="space-y-2">
             <CodeField
-              label="รหัสคนแนะนำ (ไม่บังคับ)"
+              label="เบอร์โทรคนแนะนำ (ไม่บังคับ)"
               value={referrerInput}
               onChange={(value) => {
-                setReferrerInput(value);
+                setReferrerInput(sanitizeReferrerPhoneInput(value));
                 setReferrerError(null);
               }}
-              placeholder="รหัสหรือเบอร์คนแนะนำ"
-              onApply={applyReferrerCode}
+              placeholder={PHONE_PLACEHOLDER}
+              onApply={() => void applyReferrerCode()}
               onClear={appliedReferrer ? clearReferrerCode : undefined}
-              applyLabel={appliedReferrer ? "เปลี่ยน" : "ยืนยัน"}
-              disabled={Boolean(appliedReferrer)}
+              applyLabel={
+                referrerLoading
+                  ? "กำลังตรวจ..."
+                  : appliedReferrer
+                    ? "เปลี่ยน"
+                    : "ยืนยัน"
+              }
+              disabled={Boolean(appliedReferrer) || referrerLoading}
+              inputMode="numeric"
+              maxLength={PHONE_INPUT_MAX_LENGTH}
             />
             {referrerError ? (
               <p className="text-xs font-medium text-rose-600">{referrerError}</p>
             ) : null}
             {appliedReferrer ? (
               <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800">
-                ✓ คุณ{appliedReferrer.name} จะได้รับส่วนลด{" "}
-                {formatPrice(appliedReferrer.rewardAmount)} ในออเดอร์ถัดไป
+                ✓ คุณ{appliedReferrer.name} ได้รับคะแนน
               </p>
             ) : (
               <p className="text-xs text-[var(--text-muted)]">
-                ทดลอง: REF-AOM, REF-BEW, 0812345678
+                ใช้เบอร์ที่เคยสั่งในระบบ หรือเคยเป็นผู้แนะนำมาก่อน
               </p>
             )}
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 lg:col-span-2">
+        <h2 className="font-display text-lg font-bold text-[var(--text)]">
+          แลกคะแนน
+        </h2>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          ใช้ {FREE_DRINK_POINTS} คะแนน แลกฟรีราคาเครื่องดื่มหลัก 1 รายการ
+          (Topping / Add-on คิดเงินตามปกติ)
+        </p>
+
+        {!isValidPhone(customerPhone) ? (
+          <p className="mt-4 rounded-2xl bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            กรอกเบอร์โทรที่เคยสั่งในระบบเพื่อใช้คะแนนสะสม
+          </p>
+        ) : phoneCustomerLoading ? (
+          <p className="mt-4 rounded-2xl bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            กำลังตรวจสอบคะแนน...
+          </p>
+        ) : !phoneCustomer ? (
+          <p className="mt-4 rounded-2xl bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            ยังไม่มีคะแนนสำหรับเบอร์นี้ — สั่งซื้อและรอออเดอร์ COMPLETED เพื่อสะสมคะแนน
+          </p>
+        ) : availablePoints < FREE_DRINK_POINTS ? (
+          <p className="mt-4 rounded-2xl bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            คะแนนคงเหลือ {availablePoints} — ต้องมีอย่างน้อย{" "}
+            {FREE_DRINK_POINTS} คะแนน
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm font-semibold text-amber-700">
+              คะแนนคงเหลือ {availablePoints} คะแนน
+            </p>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
+              <input
+                type="checkbox"
+                checked={useFreeDrinkReward}
+                onChange={(event) =>
+                  setUseFreeDrinkReward(event.target.checked)
+                }
+                className="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--primary)]"
+              />
+              <span>
+                <span className="block text-sm font-bold text-[var(--text)]">
+                  ใช้สิทธิ์แลกเครื่องดื่มฟรี (-{FREE_DRINK_POINTS} คะแนน)
+                </span>
+                <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                  หักจากราคาเครื่องดื่มหลักของรายการที่เลือก
+                </span>
+              </span>
+            </label>
+
+            {useFreeDrinkReward && items.length > 1 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-[var(--text-muted)]">
+                  เลือกรายการที่ใช้สิทธิ์
+                </p>
+                {items.map((item) => (
+                  <label
+                    key={item.id}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm ${
+                      freeDrinkCartItemId === item.id
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)]"
+                        : "border-[var(--border)] bg-[var(--surface)]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="free-drink-item"
+                      checked={freeDrinkCartItemId === item.id}
+                      onChange={() => setFreeDrinkCartItemId(item.id)}
+                      className="h-4 w-4 text-[var(--primary)]"
+                    />
+                    <span className="min-w-0 flex-1 font-medium">{item.name}</span>
+                    <span className="shrink-0 text-[var(--text-muted)]">
+                      ฟรี {formatPrice(item.basePrice * item.quantity)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : null}
+
+            {useFreeDrinkReward && selectedFreeDrinkItem ? (
+              <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                ✓ ลด {formatPrice(rewardDiscount)} จาก {selectedFreeDrinkItem.name}
+              </p>
+            ) : null}
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -582,23 +1032,50 @@ export function CheckoutFlow() {
 
         {paymentMethod === "transfer" ? (
           <div className="mt-4 space-y-4">
-            <div className="rounded-2xl bg-[var(--surface-muted)] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                บัญชีรับโอน
-              </p>
-              <p className="mt-2 font-semibold text-[var(--text)]">
-                {BANK_ACCOUNT.bank}
-              </p>
-              <p className="mt-1 font-display text-xl font-bold tracking-wide text-[var(--primary)]">
-                {BANK_ACCOUNT.accountNumber}
-              </p>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
-                {BANK_ACCOUNT.accountName}
-              </p>
-              <p className="mt-3 text-sm font-semibold text-[var(--text)]">
-                ยอดโอน: {formatPrice(payableTotal)}
-              </p>
-            </div>
+            {shop.paymentQrUrl ? (
+              <div className="flex flex-col items-center rounded-2xl bg-[var(--surface-muted)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  สแกน QR เพื่อโอนเงิน
+                </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={shop.paymentQrUrl}
+                  alt="QR Code รับเงิน"
+                  className="mt-3 max-h-56 w-full max-w-56 rounded-xl bg-white object-contain"
+                />
+                <p className="mt-3 text-sm font-semibold text-[var(--text)]">
+                  ยอดโอน: {formatPrice(payableTotal)}
+                </p>
+              </div>
+            ) : null}
+
+            {(shop.bankName || shop.bankAccountNumber || shop.bankAccountName) ? (
+              <div className="rounded-2xl bg-[var(--surface-muted)] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  บัญชีรับโอน
+                </p>
+                {shop.bankName ? (
+                  <p className="mt-2 font-semibold text-[var(--text)]">
+                    {shop.bankName}
+                  </p>
+                ) : null}
+                {shop.bankAccountNumber ? (
+                  <p className="mt-1 font-display text-xl font-bold tracking-wide text-[var(--primary)]">
+                    {shop.bankAccountNumber}
+                  </p>
+                ) : null}
+                {shop.bankAccountName ? (
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                    {shop.bankAccountName}
+                  </p>
+                ) : null}
+                {!shop.paymentQrUrl ? (
+                  <p className="mt-3 text-sm font-semibold text-[var(--text)]">
+                    ยอดโอน: {formatPrice(payableTotal)}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div>
               <p className="mb-2 text-sm font-semibold text-[var(--text)]">
@@ -705,10 +1182,10 @@ export function CheckoutFlow() {
               <span>-{formatPrice(discounts.totalDiscount)}</span>
             </div>
           ) : null}
-          {appliedReferrer ? (
-            <div className="flex items-center justify-between text-xs text-sky-700">
-              <span>ส่วนลดให้คุณ{appliedReferrer.name} (รอบหน้า)</span>
-              <span>{formatPrice(appliedReferrer.rewardAmount)}</span>
+          {rewardDiscount > 0 ? (
+            <div className="flex items-center justify-between text-sm text-emerald-700">
+              <span>แลกเครื่องดื่มฟรี ({FREE_DRINK_POINTS} คะแนน)</span>
+              <span>-{formatPrice(rewardDiscount)}</span>
             </div>
           ) : null}
           <div className="flex items-center justify-between border-t border-[var(--border)] pt-2">
@@ -720,12 +1197,22 @@ export function CheckoutFlow() {
         </div>
         <button
           type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
+          onClick={() => void handleSubmit()}
+          disabled={!canSubmit || submitting}
           className="mt-4 flex w-full items-center justify-center rounded-2xl bg-[var(--primary)] px-4 py-4 text-base font-bold text-white shadow-lg shadow-[var(--primary)]/30 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          ยืนยันคำสั่งซื้อ
+          {submitting ? "กำลังส่งออเดอร์..." : "ยืนยันคำสั่งซื้อ"}
         </button>
+        {!canSubmit && !submitting && submitBlockers.length > 0 ? (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            กรุณา{submitBlockers.join(" · ")} ก่อนยืนยัน
+          </p>
+        ) : null}
+        {submitError ? (
+          <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {submitError}
+          </p>
+        ) : null}
       </section>
     </div>
   );
@@ -740,6 +1227,8 @@ function CodeField({
   onClear,
   applyLabel,
   disabled,
+  inputMode,
+  maxLength,
 }: {
   label: string;
   value: string;
@@ -749,6 +1238,8 @@ function CodeField({
   onClear?: () => void;
   applyLabel: string;
   disabled?: boolean;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
 }) {
   return (
     <label className="block">
@@ -757,10 +1248,13 @@ function CodeField({
       </span>
       <div className="flex gap-2">
         <input
+          type="tel"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           disabled={disabled}
+          inputMode={inputMode}
+          maxLength={maxLength}
           className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none ring-[var(--primary)] focus:ring-2 disabled:opacity-60"
         />
         {onClear ? (
@@ -782,6 +1276,35 @@ function CodeField({
           </button>
         )}
       </div>
+    </label>
+  );
+}
+
+function PhoneField({
+  label,
+  value,
+  onChange,
+  placeholder = PHONE_PLACEHOLDER,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold text-[var(--text-muted)]">
+        {label}
+      </span>
+      <input
+        type="tel"
+        inputMode="numeric"
+        value={value}
+        onChange={(event) => onChange(formatPhoneInput(event.target.value))}
+        placeholder={placeholder}
+        maxLength={PHONE_INPUT_MAX_LENGTH}
+        className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2.5 text-sm tabular-nums text-[var(--text)] outline-none ring-[var(--primary)] focus:ring-2"
+      />
     </label>
   );
 }

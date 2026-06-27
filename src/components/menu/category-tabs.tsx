@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { Category } from "@/types";
 
+export const ALL_MENU_CATEGORY_ID = "__all__";
+
 interface CategoryTabsProps {
   categories: Category[];
   activeId: string;
   onChange: (id: string) => void;
+  showAllTab?: boolean;
 }
 
 const DRAG_THRESHOLD = 8;
@@ -15,6 +18,7 @@ export function CategoryTabs({
   categories,
   activeId,
   onChange,
+  showAllTab = false,
 }: CategoryTabsProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
@@ -111,6 +115,25 @@ export function CategoryTabs({
         }`}
         style={{ touchAction: "pan-x" }}
       >
+        {showAllTab ? (
+          <button
+            key={ALL_MENU_CATEGORY_ID}
+            ref={activeId === ALL_MENU_CATEGORY_ID ? activeRef : undefined}
+            type="button"
+            data-category-tab
+            onClick={(event) =>
+              handleCategoryClick(event, ALL_MENU_CATEGORY_ID)
+            }
+            className={`shrink-0 touch-manipulation whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold transition active:scale-[0.97] ${
+              activeId === ALL_MENU_CATEGORY_ID
+                ? "bg-[var(--primary)] text-white shadow-[0_8px_20px_-10px_rgb(var(--shadow-color)/0.7)]"
+                : "border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:border-[var(--primary)]/35 hover:bg-[var(--primary-soft)] hover:text-[var(--text)]"
+            }`}
+          >
+            <span className="mr-1.5">📋</span>
+            ทั้งหมด
+          </button>
+        ) : null}
         {categories.map((category) => {
           const active = category.id === activeId;
           return (

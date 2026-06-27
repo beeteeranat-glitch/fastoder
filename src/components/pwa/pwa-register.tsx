@@ -1,0 +1,23 @@
+"use client";
+
+import { useEffect } from "react";
+
+export function PwaRegister() {
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    if (process.env.NODE_ENV !== "production") {
+      // Dev: ล้าง SW เก่าที่อาจ cache chunk ของ Turbopack แล้วทำให้หน้าโหลดวน
+      void navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          void registration.unregister();
+        }
+      });
+      return;
+    }
+
+    void navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }, []);
+
+  return null;
+}
