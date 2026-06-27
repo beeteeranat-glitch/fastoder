@@ -51,11 +51,11 @@ export const STATUS_TRANSITIONS: Record<DbOrderStatus, DbOrderStatus[]> = {
 };
 
 export const STATUS_ACTION_LABELS: Partial<Record<DbOrderStatus, string>> = {
-  CONFIRMED: "ยืนยันออเดอร์",
-  PREPARING: "เริ่มเตรียมสินค้า",
+  CONFIRMED: "รับออเดอร์แล้ว",
+  PREPARING: "กำลังเตรียมสินค้า",
   READY_FOR_DELIVERY: "พร้อมจัดส่ง",
-  DELIVERING: "เริ่มจัดส่ง",
-  COMPLETED: "ทำเครื่องส่งแล้ว",
+  DELIVERING: "กำลังจัดส่ง",
+  COMPLETED: "จัดส่งสำเร็จ",
   CANCELLED: "ยกเลิกออเดอร์",
 };
 

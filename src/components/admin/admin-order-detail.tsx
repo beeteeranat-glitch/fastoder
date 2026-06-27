@@ -9,8 +9,10 @@ import { formatPrice } from "@/lib/format";
 import { formatDistance } from "@/lib/delivery-fee";
 import { formatPhoneForDisplay } from "@/lib/phone";
 import {
+  CUSTOMER_TRACKING_STEPS,
   STATUS_ACTION_LABELS,
   canAdminActOnOrder,
+  customerTrackingStepIndex,
   formatOrderDate,
   getNextAdminStatus,
   paymentMethodLabel,
@@ -138,33 +140,87 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
             <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
               ออเดอร์นี้ถูกยกเลิกแล้ว
             </p>
-          ) : nextStatus ? (
-            <div className="mt-5 grid grid-cols-1 gap-3 print:hidden">
-              <button
-                type="button"
-                disabled={updating !== null}
-                onClick={() => void updateStatus(nextStatus)}
-                className="rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-              >
-                {updating === nextStatus
-                  ? "กำลังอัปเดต..."
-                  : STATUS_ACTION_LABELS[nextStatus] ?? "อัปเดตสถานะ"}
-              </button>
+          ) : (
+            <div className="space-y-4">
+           <div className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 print:hidden">
+                <h3 className="mb-4 font-display text-lg font-bold text-[var(--text)]">
+                  สถานะออเดอร์
+                </h3>
+                <div className="flex flex-col gap-4">
+                  {CUSTOMER_TRACKING_STEPS.map((step, index) => {
+                    const stepIndex = customerTrackingStepIndex(order.status);
+                    // ปรับเงื่อนไข: ถ้าระดับสถานะปัจจุบันมากกว่าหรือเท่ากับ index ถือว่าเสร็จสิ้น/ผ่านมาแล้ว
+                    const isDone = stepIndex >= index; 
 
-              {order.status === "PENDING" ? (
-                <button
-                  type="button"
-                  disabled={updating !== null}
-                  onClick={() => void updateStatus("CANCELLED")}
-                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-                >
-                  {updating === "CANCELLED"
-                    ? "กำลังอัปเดต..."
-                    : "ยกเลิกออเดอร์"}
-                </button>
+                    return (
+                      <div key={step.status} className="flex items-center gap-3">
+                        {isDone ? (
+                          // วงกลมสีฟ้า + ไอคอนเช็คถูก
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-white">
+                            <svg
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={3}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </div>
+                        ) : (
+                          // วงกลมสีเทา + ตัวเลข
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500">
+                            {index + 1}
+                          </div>
+                        )}
+                        
+                        {/* ข้อความสถานะ */}
+                        <span
+                          className={`text-sm font-medium ${
+                            isDone ? "text-[var(--primary)]" : "text-[var(--text)]"
+                          }`}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {nextStatus ? (
+                <div className="mt-3 grid grid-cols-1 gap-3 print:hidden">
+                  <button
+                    type="button"
+                    disabled={updating !== null}
+                    onClick={() => void updateStatus(nextStatus)}
+                    className="rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+                  >
+                    {updating === nextStatus
+                      ? "กำลังอัปเดต..."
+                      : STATUS_ACTION_LABELS[nextStatus] ?? "อัปเดตสถานะ"}
+                  </button>
+
+                  {order.status === "PENDING" ? (
+                    <button
+                      type="button"
+                      disabled={updating !== null}
+                      onClick={() => void updateStatus("CANCELLED")}
+                      className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                    >
+                      {updating === "CANCELLED"
+                        ? "กำลังอัปเดต..."
+                        : "ยกเลิกออเดอร์"}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
-          ) : null}
+          )}
 
           {error ? (
             <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
