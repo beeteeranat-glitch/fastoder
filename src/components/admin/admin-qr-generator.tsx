@@ -31,7 +31,7 @@ export function AdminQrGenerator() {
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
 
-      <div className="mt-2 mb-6 space-y-2">
+      {/* <div className="mt-2 mb-6 space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
           ลิ้งค์ของส่วนหน้า Admin
         </p>
@@ -41,7 +41,7 @@ export function AdminQrGenerator() {
         >
           http://localhost:3000/admin
         </a>
-      </div>
+      </div> */}
       <h2 className="font-display text-lg font-bold">QR Code เมนูร้าน</h2>
       <p className="mt-1 text-sm text-[var(--text-muted)]">
         ลูกค้าสแกนเพื่อเปิดเมนูและสั่งซื้อ

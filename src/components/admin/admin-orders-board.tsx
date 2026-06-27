@@ -212,25 +212,26 @@ export function AdminOrdersBoard() {
                     </div>
                   </Link>
 
-                  {order.status === "PENDING" ? (
-                    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border)] pt-3">
+                  {canAct && nextStatus ? (
+                    <div className={`mt-3 grid gap-2 border-t border-[var(--border)] pt-3 ${order.status === "PENDING" ? "grid-cols-2" : "grid-cols-1"}`}>
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void updateStatus(order.id, "CONFIRMED")}
+                        onClick={() => void updateStatus(order.id, nextStatus)}
                         className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
                       >
-                        {busy ? "กำลังอัปเดต..." : "ยืนยันออเดอร์"}
+                        {busy ? "กำลังอัปเดต..." : STATUS_ACTION_LABELS[nextStatus] ?? "อัปเดตสถานะ"}
                       </button>
-
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void updateStatus(order.id, "CANCELLED")}
-                        className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-                      >
-                        {busy ? "กำลังอัปเดต..." : "ยกเลิกออเดอร์"}
-                      </button>
+                      {order.status === "PENDING" ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void updateStatus(order.id, "CANCELLED")}
+                          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                        >
+                          {busy ? "กำลังอัปเดต..." : "ยกเลิกออเดอร์"}
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </article>

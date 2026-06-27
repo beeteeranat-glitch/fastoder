@@ -34,20 +34,28 @@ export function customerTrackingStepIndex(status: DbOrderStatus) {
 
 const ACTIVE_STATUSES: DbOrderStatus[] = [
   "PENDING",
+  "CONFIRMED",
+  "PREPARING",
+  "READY_FOR_DELIVERY",
+  "DELIVERING",
 ];
 
 export const STATUS_TRANSITIONS: Record<DbOrderStatus, DbOrderStatus[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
-  CONFIRMED: [],
-  PREPARING: [],
-  READY_FOR_DELIVERY: [],
-  DELIVERING: [],
+  CONFIRMED: ["PREPARING"],
+  PREPARING: ["DELIVERING"],
+  READY_FOR_DELIVERY: ["DELIVERING"],
+  DELIVERING: ["COMPLETED"],
   COMPLETED: [],
   CANCELLED: [],
 };
 
 export const STATUS_ACTION_LABELS: Partial<Record<DbOrderStatus, string>> = {
   CONFIRMED: "ยืนยันออเดอร์",
+  PREPARING: "เริ่มเตรียมสินค้า",
+  READY_FOR_DELIVERY: "พร้อมจัดส่ง",
+  DELIVERING: "เริ่มจัดส่ง",
+  COMPLETED: "ทำเครื่องส่งแล้ว",
   CANCELLED: "ยกเลิกออเดอร์",
 };
 
@@ -56,6 +64,10 @@ export function getNextAdminStatus(
 ): DbOrderStatus | null {
   const nextMap: Partial<Record<DbOrderStatus, DbOrderStatus>> = {
     PENDING: "CONFIRMED",
+    CONFIRMED: "PREPARING",
+    PREPARING: "DELIVERING",
+    READY_FOR_DELIVERY: "DELIVERING",
+    DELIVERING: "COMPLETED",
   };
 
   return nextMap[current] ?? null;

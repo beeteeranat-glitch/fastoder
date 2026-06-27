@@ -138,29 +138,31 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
             <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
               ออเดอร์นี้ถูกยกเลิกแล้ว
             </p>
-          ) : order.status === "PENDING" ? (
-            <div className="mt-5 grid grid-cols-2 gap-3 print:hidden">
+          ) : nextStatus ? (
+            <div className="mt-5 grid grid-cols-1 gap-3 print:hidden">
               <button
                 type="button"
                 disabled={updating !== null}
-                onClick={() => void updateStatus("CONFIRMED")}
+                onClick={() => void updateStatus(nextStatus)}
                 className="rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
               >
-                {updating === "CONFIRMED"
+                {updating === nextStatus
                   ? "กำลังอัปเดต..."
-                  : "ยืนยันออเดอร์"}
+                  : STATUS_ACTION_LABELS[nextStatus] ?? "อัปเดตสถานะ"}
               </button>
 
-              <button
-                type="button"
-                disabled={updating !== null}
-                onClick={() => void updateStatus("CANCELLED")}
-                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-              >
-                {updating === "CANCELLED"
-                  ? "กำลังอัปเดต..."
-                  : "ยกเลิกออเดอร์"}
-              </button>
+              {order.status === "PENDING" ? (
+                <button
+                  type="button"
+                  disabled={updating !== null}
+                  onClick={() => void updateStatus("CANCELLED")}
+                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                >
+                  {updating === "CANCELLED"
+                    ? "กำลังอัปเดต..."
+                    : "ยกเลิกออเดอร์"}
+                </button>
+              ) : null}
             </div>
           ) : null}
 

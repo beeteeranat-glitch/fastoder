@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { formatPrice } from "@/lib/format";
 
 export function OrderSuccessClient() {
-  const router = useRouter();
   const params = useSearchParams();
   const orderNumber = params.get("orderNumber") ?? "";
   const total = Number(params.get("total") ?? "0");
@@ -45,16 +44,9 @@ export function OrderSuccessClient() {
         ) : null}
       </div>
 
-      <button
-        type="button"
-        onClick={() => router.push(`/orders/${orderNumber}`)}
-        className="mt-5 w-full rounded-2xl bg-[var(--primary)] px-4 py-3.5 text-sm font-bold text-white"
-      >
-        ติดตามสถานะออเดอร์
-      </button>
       <Link
         href="/menu"
-        className="mt-2 inline-flex w-full items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3 text-sm font-semibold"
+        className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3 text-sm font-semibold"
       >
         กลับหน้าเมนู
       </Link>
