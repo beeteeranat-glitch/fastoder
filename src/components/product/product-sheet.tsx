@@ -148,10 +148,10 @@ export function ProductSheet({
           </div>
         </div>
 
-        <button
+       <button
           type="button"
           onClick={handleAdd}
-          className="btn-primary mt-4 flex w-full items-center justify-center gap-2 px-4 py-4 text-base"
+          className="btn-primary mt-4 mb-36 flex w-full items-center justify-center gap-2 px-4 py-4 text-base"
         >
           เพิ่มลงตะกร้า {formatPrice(unitPrice * quantity)}
         </button>
