@@ -6,7 +6,12 @@ import {
 } from "@/lib/customer-session";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
+const LOGIN_DISABLED = true;
+
 export async function GET() {
+  if (LOGIN_DISABLED) {
+    return NextResponse.json({ authenticated: false });
+  }
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ authenticated: false });
   }

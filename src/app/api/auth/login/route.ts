@@ -5,7 +5,15 @@ import { createCustomerSession } from "@/lib/customer-session";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
+const LOGIN_DISABLED = true;
+
 export async function POST(request: NextRequest) {
+  if (LOGIN_DISABLED) {
+    return NextResponse.json(
+      { error: "ระบบล็อกอินถูกปิดชั่วคราว" },
+      { status: 503 },
+    );
+  }
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "ยังไม่ได้ตั้งค่า Supabase" },

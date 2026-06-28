@@ -7,6 +7,8 @@ import { RESTAURANT } from "@/data/menu";
 import { createServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
+const LOGIN_DISABLED = true;
+
 function customerPayload(
   customer: {
     id: string;
