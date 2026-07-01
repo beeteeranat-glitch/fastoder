@@ -10,12 +10,13 @@ import { formatDistance } from "@/lib/delivery-fee";
 import { formatPhoneForDisplay } from "@/lib/phone";
 import {
   CUSTOMER_TRACKING_STEPS,
-  STATUS_ACTION_LABELS,
-  canAdminActOnOrder,
   customerTrackingStepIndex,
   formatOrderDate,
   getNextAdminStatus,
+  orderStatusLabelForType,
+  orderTypeLabel,
   paymentMethodLabel,
+  statusActionLabelForType,
 } from "@/lib/orders";
 import { orderDetailRealtimeSubs } from "@/lib/realtime-subscriptions";
 import { REFERRAL_POINTS_PER_CUSTOMER } from "@/lib/referrers";
@@ -107,8 +108,8 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
 
   if (!order) return null;
 
-  const canAct = canAdminActOnOrder(order.status);
   const nextStatus = getNextAdminStatus(order.status);
+  const isPickup = order.order_type === "pickup";
 
   return (
     <div className="space-y-4">
@@ -133,7 +134,24 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                 {formatOrderDate(order.created_at)}
               </p>
             </div>
-            <OrderStatusBadge status={order.status} />
+            <div className="flex max-w-full flex-col items-start gap-2 sm:items-end">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-bold ${
+                    isPickup
+                      ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                      : "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
+                  }`}
+                >
+                  {orderTypeLabel(order.order_type)}
+                </span>
+                <OrderStatusBadge status={order.status} />
+              </div>
+              <p className="max-w-md break-words text-left text-xs font-medium text-[var(--text-muted)] sm:text-right">
+                {isPickup ? "จุดรับสินค้า" : "ที่อยู่จัดส่ง"}:{" "}
+                <span className="text-[var(--text)]">{order.delivery_address}</span>
+              </p>
+            </div>
           </div>
 
           {order.status === "CANCELLED" ? (
@@ -184,7 +202,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                             isDone ? "text-[var(--primary)]" : "text-[var(--text)]"
                           }`}
                         >
-                          {step.label}
+                          {orderStatusLabelForType(step.status, order.order_type)}
                         </span>
                       </div>
                     );
@@ -202,7 +220,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   >
                     {updating === nextStatus
                       ? "กำลังอัปเดต..."
-                      : STATUS_ACTION_LABELS[nextStatus] ?? "อัปเดตสถานะ"}
+                      : statusActionLabelForType(nextStatus, order.order_type)}
                   </button>
 
                   {order.status === "PENDING" ? (
@@ -247,11 +265,13 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   {formatPhoneForDisplay(order.customer_phone)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-[var(--text-muted)]">ที่อยู่จัดส่ง</dt>
-                <dd className="text-[var(--text)]">{order.delivery_address}</dd>
-              </div>
-              {order.distance_meters !== null ? (
+              {!isPickup ? (
+                <div>
+                  <dt className="text-[var(--text-muted)]">ที่อยู่จัดส่ง</dt>
+                  <dd className="text-[var(--text)]">{order.delivery_address}</dd>
+                </div>
+              ) : null}
+              {order.order_type === "delivery" && order.distance_meters !== null ? (
                 <div>
                   <dt className="text-[var(--text-muted)]">ระยะทางจัดส่ง</dt>
                   <dd className="font-semibold text-[var(--text)]">
@@ -262,7 +282,8 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   </dd>
                 </div>
               ) : null}
-              {order.delivery_latitude !== null &&
+              {order.order_type === "delivery" &&
+                order.delivery_latitude !== null &&
                 order.delivery_longitude !== null ? (
                 <div>
                   <dt className="text-[var(--text-muted)]">พิกัด</dt>

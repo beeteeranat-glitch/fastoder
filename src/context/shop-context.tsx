@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import { DEFAULT_SHOP, type ShopProfile } from "@/lib/restaurant-data";
+import { RESTAURANT_REALTIME_SUBS } from "@/lib/realtime-subscriptions";
+import { useRealtimeRefetch } from "@/hooks/use-realtime-refetch";
 
 type ShopContextValue = {
   shop: ShopProfile;
@@ -39,6 +41,32 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (shop.isOpen || !shop.closingUntil) return;
+
+    const delay = new Date(shop.closingUntil).getTime() - Date.now() + 1000;
+    if (delay <= 0) {
+      void reload();
+      return;
+    }
+
+    const timer = window.setTimeout(() => void reload(), delay);
+    return () => window.clearTimeout(timer);
+  }, [shop.isOpen, shop.closingUntil, reload]);
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+
+    const channel = new BroadcastChannel("fastorder-shop-updates");
+    channel.onmessage = () => {
+      void reload();
+    };
+
+    return () => channel.close();
+  }, [reload]);
+
+  useRealtimeRefetch(RESTAURANT_REALTIME_SUBS, () => void reload());
 
   const value = useMemo(
     () => ({ shop, loading, reload }),

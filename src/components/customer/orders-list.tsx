@@ -11,6 +11,8 @@ import {
   customerTrackingStepIndex,
   formatOrderDate,
   isActiveOrderStatus,
+  orderStatusLabelForType,
+  orderTypeLabel,
 } from "@/lib/orders";
 import { customerOrdersRealtimeSubs } from "@/lib/realtime-subscriptions";
 import type { DbOrder } from "@/types/database";
@@ -50,7 +52,12 @@ function OrderProgress({ order }: { order: DbOrder }) {
       </div>
       <p className="mt-2 text-xs font-medium text-[var(--primary)]">
         ขั้นตอน {stepIndex + 1}/{totalSteps} ·{" "}
-        {CUSTOMER_TRACKING_STEPS[stepIndex]?.label ?? "กำลังดำเนินการ"}
+        {CUSTOMER_TRACKING_STEPS[stepIndex]
+          ? orderStatusLabelForType(
+              CUSTOMER_TRACKING_STEPS[stepIndex].status,
+              order.order_type,
+            )
+          : "กำลังดำเนินการ"}
       </p>
     </div>
   );
@@ -74,7 +81,7 @@ function OrderCard({ order }: { order: DbOrder }) {
             #{order.order_number}
           </p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {formatOrderDate(order.created_at)}
+            {formatOrderDate(order.created_at)} · {orderTypeLabel(order.order_type)}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">

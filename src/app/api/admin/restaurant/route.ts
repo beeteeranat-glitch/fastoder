@@ -40,6 +40,9 @@ export async function PATCH(request: NextRequest) {
     address?: string;
     latitude?: number;
     longitude?: number;
+    is_open?: boolean;
+    closing_until?: string | null;
+    open_days?: number[];
     logo_url?: string | null;
     bank_name?: string | null;
     bank_account_number?: string | null;
@@ -68,11 +71,26 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const openDays = Array.isArray(body.open_days) ? body.open_days : [];
+  const validOpenDays =
+    openDays.length > 0 &&
+    openDays.every((day) => Number.isInteger(day) && day >= 0 && day <= 6);
+
+  if (!validOpenDays) {
+    return NextResponse.json(
+      { error: "เลือกวันเปิดร้านอย่างน้อย 1 วัน" },
+      { status: 400 },
+    );
+  }
+
   const shop = await updateRestaurantInDb({
     name: body.name.trim(),
     address: body.address.trim(),
     latitude: body.latitude,
     longitude: body.longitude,
+    is_open: typeof body.is_open === "boolean" ? body.is_open : undefined,
+    closing_until: body.closing_until ?? null,
+    open_days: Array.from(new Set(openDays)).sort((a, b) => a - b),
     logo_url: body.logo_url ?? null,
     bank_name: body.bank_name?.trim() || null,
     bank_account_number: body.bank_account_number?.trim() || null,
@@ -84,7 +102,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "บันทึกไม่สำเร็จ — ถ้ายังไม่มีคอลัมน์ใหม่ ให้รัน migration 005_restaurant_logo.sql และ 007_restaurant_payment.sql",
+          "บันทึกไม่สำเร็จ — ถ้ายังไม่มีคอลัมน์ใหม่ ให้รัน migration 016_restaurant_open_days.sql",
       },
       { status: 500 },
     );

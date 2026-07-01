@@ -1,4 +1,4 @@
-import type { DbOrderStatus } from "@/types/database";
+import type { DbOrderStatus, DbOrderType } from "@/types/database";
 
 export const ORDER_STATUS_LABELS: Record<DbOrderStatus, string> = {
   PENDING: "รอร้านยืนยัน",
@@ -58,6 +58,42 @@ export const STATUS_ACTION_LABELS: Partial<Record<DbOrderStatus, string>> = {
   COMPLETED: "จัดส่งสำเร็จ",
   CANCELLED: "ยกเลิกออเดอร์",
 };
+
+export function orderTypeLabel(orderType: DbOrderType | null | undefined) {
+  if (orderType === "pickup") return "มารับหน้าร้าน";
+  return "จัดส่ง";
+}
+
+export function orderStatusLabelForType(
+  status: DbOrderStatus,
+  orderType: DbOrderType | null | undefined,
+) {
+  if (orderType !== "pickup") return ORDER_STATUS_LABELS[status];
+
+  const pickupLabels: Partial<Record<DbOrderStatus, string>> = {
+    READY_FOR_DELIVERY: "พร้อมให้รับ",
+    DELIVERING: "รอลูกค้ามารับ",
+    COMPLETED: "รับสินค้าแล้ว",
+  };
+
+  return pickupLabels[status] ?? ORDER_STATUS_LABELS[status];
+}
+
+export function statusActionLabelForType(
+  status: DbOrderStatus,
+  orderType: DbOrderType | null | undefined,
+) {
+  if (orderType !== "pickup") {
+    return STATUS_ACTION_LABELS[status] ?? "อัปเดตสถานะ";
+  }
+
+  const pickupLabels: Partial<Record<DbOrderStatus, string>> = {
+    DELIVERING: "พร้อมให้รับ",
+    COMPLETED: "ลูกค้ารับแล้ว",
+  };
+
+  return pickupLabels[status] ?? STATUS_ACTION_LABELS[status] ?? "อัปเดตสถานะ";
+}
 
 export function getNextAdminStatus(
   current: DbOrderStatus,

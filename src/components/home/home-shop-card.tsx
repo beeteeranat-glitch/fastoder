@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useShop } from "@/context/shop-context";
 import { ShopLogo } from "@/components/shop/shop-logo";
+import { ShopStatusBadge } from "@/components/shop/shop-status-badge";
 import { formatDeliveryRange } from "@/lib/delivery-fee";
 
 export function HomeShopCard() {
@@ -22,9 +23,9 @@ export function HomeShopCard() {
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             จัดส่ง {formatDeliveryRange()} ค่าส่งตามระยะทาง
           </p>
-          <p className="mt-2 inline-flex rounded-full bg-[var(--secondary)]/15 px-2.5 py-1 text-[11px] font-semibold text-[var(--secondary)]">
-            สแกนแล้ว — พร้อมสั่ง
-          </p>
+          <div className="mt-2">
+            <ShopStatusBadge shop={shop} />
+          </div>
         </div>
       </div>
     </div>

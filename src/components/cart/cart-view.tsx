@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCart } from "@/context/cart-context";
+import { useShop } from "@/context/shop-context";
 import {
   calcCartTotal,
   calcItemUnitPrice,
@@ -11,6 +12,7 @@ import { SIZE_OPTIONS } from "@/data/menu";
 
 export function CartView() {
   const { items, updateQuantity, removeItem } = useCart();
+  const { shop } = useShop();
   const total = calcCartTotal(items);
 
   if (items.length === 0) {
@@ -124,10 +126,20 @@ export function CartView() {
         </div>
         <Link
           href="/checkout"
-          className="flex w-full items-center justify-center rounded-2xl bg-[var(--primary)] px-4 py-4 text-base font-bold text-white shadow-lg shadow-[var(--primary)]/30"
+          aria-disabled={!shop.isOpen}
+          className={`flex w-full items-center justify-center rounded-2xl px-4 py-4 text-base font-bold text-white shadow-lg ${
+            shop.isOpen
+              ? "bg-[var(--primary)] shadow-[var(--primary)]/30"
+              : "pointer-events-none bg-slate-300 shadow-none"
+          }`}
         >
-          ดำเนินการสั่งซื้อ
+          {shop.isOpen ? "ดำเนินการสั่งซื้อ" : "ร้านปิดรับออเดอร์"}
         </Link>
+        {!shop.isOpen ? (
+          <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            ตอนนี้ร้านปิดอยู่ ยังไม่สามารถยืนยันคำสั่งซื้อได้
+          </p>
+        ) : null}
       </div>
     </div>
   );

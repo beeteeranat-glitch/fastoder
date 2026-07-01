@@ -11,11 +11,13 @@ import { ProductCard } from "@/components/menu/product-card";
 import { ProductSheet } from "@/components/product/product-sheet";
 import { PageContent } from "@/components/layout/page-shell";
 import { useLiveMenu } from "@/hooks/use-live-menu";
+import { useShop } from "@/context/shop-context";
 import { pickMenuHighlights } from "@/lib/best-sellers";
 import type { Product } from "@/types";
 
 export function MenuPageClient() {
   const { categories, products, toppings, addons } = useLiveMenu();
+  const { shop } = useShop();
   const [activeCategory, setActiveCategory] = useState(ALL_MENU_CATEGORY_ID);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -34,6 +36,10 @@ export function MenuPageClient() {
     if (updated) setSelectedProduct(updated);
     else setSelectedProduct(null);
   }, [products, selectedProduct?.id]);
+
+  useEffect(() => {
+    if (!shop.isOpen) setSelectedProduct(null);
+  }, [shop.isOpen]);
 
   const availableProducts = useMemo(
     () => products.filter((product) => product.isAvailable),
@@ -74,6 +80,11 @@ export function MenuPageClient() {
           />
         }
       />
+      {!shop.isOpen ? (
+        <div className="mx-auto mt-4 w-full max-w-3xl rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 sm:px-5">
+          ร้านปิดรับออเดอร์อยู่ในขณะนี้ กรุณาลองใหม่เมื่อร้านเปิดอีกครั้ง
+        </div>
+      ) : null}
 
       <PageContent className="flex min-w-0 flex-1 flex-col pb-6 lg:pb-8">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col py-5">
@@ -84,12 +95,14 @@ export function MenuPageClient() {
                 emoji="🆕"
                 products={highlights.newest}
                 onSelect={setSelectedProduct}
+                disabled={!shop.isOpen}
               />
               <MenuHighlights
                 title="เมนูแนะนำ"
                 emoji="⭐"
                 products={highlights.recommended}
                 onSelect={setSelectedProduct}
+                disabled={!shop.isOpen}
               />
 
               <div className="mb-4 flex items-end justify-between gap-3">
@@ -109,6 +122,7 @@ export function MenuPageClient() {
                     key={product.id}
                     product={product}
                     onSelect={setSelectedProduct}
+                    disabled={!shop.isOpen}
                   />
                 ))}
               </div>
@@ -135,6 +149,7 @@ export function MenuPageClient() {
                     key={product.id}
                     product={product}
                     onSelect={setSelectedProduct}
+                    disabled={!shop.isOpen}
                   />
                 ))}
               </div>
@@ -148,6 +163,7 @@ export function MenuPageClient() {
         toppings={toppings}
         addons={addons}
         onClose={() => setSelectedProduct(null)}
+        disabled={!shop.isOpen}
       />
     </>
   );

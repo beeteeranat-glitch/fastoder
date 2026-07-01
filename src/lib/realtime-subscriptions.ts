@@ -3,6 +3,10 @@ import type { RealtimeTableSubscription } from "@/hooks/use-realtime-refetch";
 
 const restaurantFilter = `restaurant_id=eq.${RESTAURANT.id}`;
 
+export const RESTAURANT_REALTIME_SUBS: RealtimeTableSubscription[] = [
+  { table: "restaurants", filter: `id=eq.${RESTAURANT.id}` },
+];
+
 export const ORDERS_REALTIME_SUBS: RealtimeTableSubscription[] = [
   { table: "orders", filter: restaurantFilter },
 ];

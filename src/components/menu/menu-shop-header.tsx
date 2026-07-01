@@ -4,6 +4,7 @@ import { formatDeliveryRange } from "@/lib/delivery-fee";
 import type { ReactNode } from "react";
 import { useShop } from "@/context/shop-context";
 import { ShopLogo } from "@/components/shop/shop-logo";
+import { ShopStatusBadge } from "@/components/shop/shop-status-badge";
 
 export function MenuShopHeader({ tabs }: { tabs: ReactNode }) {
   const { shop } = useShop();
@@ -23,10 +24,7 @@ export function MenuShopHeader({ tabs }: { tabs: ReactNode }) {
               {shop.name}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                เปิดรับออเดอร์
-              </span>
+              <ShopStatusBadge shop={shop} compact />
               <span className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)] ring-1 ring-[var(--border)]">
                 จัดส่ง {formatDeliveryRange()}
               </span>

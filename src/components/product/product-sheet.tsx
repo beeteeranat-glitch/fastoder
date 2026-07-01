@@ -12,6 +12,7 @@ interface ProductSheetProps {
   toppings: Topping[];
   addons: Addon[];
   onClose: () => void;
+  disabled?: boolean;
 }
 
 function toggleItem<T extends { id: string }>(list: T[], item: T) {
@@ -25,6 +26,7 @@ export function ProductSheet({
   toppings: toppingOptions,
   addons: addonOptions,
   onClose,
+  disabled,
 }: ProductSheetProps) {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -46,6 +48,7 @@ export function ProductSheet({
   if (!product) return null;
 
   const handleAdd = () => {
+    if (disabled) return;
     addItem({
       product,
       quantity,
@@ -151,9 +154,12 @@ export function ProductSheet({
        <button
           type="button"
           onClick={handleAdd}
-          className="btn-primary mt-4 mb-36 flex w-full items-center justify-center gap-2 px-4 py-4 text-base"
+          disabled={disabled}
+          className={`btn-primary mt-4 mb-36 flex w-full items-center justify-center gap-2 px-4 py-4 text-base ${
+            disabled ? "cursor-not-allowed opacity-60" : ""
+          }`}
         >
-          เพิ่มลงตะกร้า {formatPrice(unitPrice * quantity)}
+          {disabled ? "ร้านปิด" : `เพิ่มลงตะกร้า ${formatPrice(unitPrice * quantity)}`}
         </button>
       </div>
     </div>

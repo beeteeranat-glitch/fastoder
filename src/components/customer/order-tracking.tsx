@@ -15,7 +15,8 @@ import {
   CUSTOMER_TRACKING_STEPS,
   customerTrackingStepIndex,
   formatOrderDate,
-  ORDER_STATUS_LABELS,
+  orderStatusLabelForType,
+  orderTypeLabel,
 } from "@/lib/orders";
 import { orderDetailRealtimeSubs } from "@/lib/realtime-subscriptions";
 import type { DbOrder, DbOrderItem } from "@/types/database";
@@ -100,6 +101,7 @@ export function OrderTracking({ orderNumber }: { orderNumber: string }) {
     order.status,
   );
   const etaLabel = formatEtaLabel(etaMinutes);
+  const isDeliveryOrder = order.order_type !== "pickup";
 
   return (
     <div className="space-y-4">
@@ -116,9 +118,14 @@ export function OrderTracking({ orderNumber }: { orderNumber: string }) {
           {formatOrderDate(order.created_at)}
         </p>
         <p className="mt-3 text-lg font-semibold">
-          {ORDER_STATUS_LABELS[order.status]}
+          {orderStatusLabelForType(order.status, order.order_type)}
         </p>
-        {order.status !== "COMPLETED" && order.status !== "CANCELLED" ? (
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          {orderTypeLabel(order.order_type)}
+        </p>
+        {isDeliveryOrder &&
+        order.status !== "COMPLETED" &&
+        order.status !== "CANCELLED" ? (
           <p className="mt-1 text-sm font-semibold text-[var(--primary)]">
             เวลาประมาณการ: {etaLabel}
           </p>
@@ -149,7 +156,7 @@ export function OrderTracking({ orderNumber }: { orderNumber: string }) {
                         active ? "text-[var(--primary)]" : "text-[var(--text)]"
                       }`}
                     >
-                      {step.label}
+                      {orderStatusLabelForType(step.status, order.order_type)}
                     </p>
                   </div>
                 </li>
@@ -159,7 +166,8 @@ export function OrderTracking({ orderNumber }: { orderNumber: string }) {
         </section>
       ) : null}
 
-      {restaurant &&
+      {isDeliveryOrder &&
+      restaurant &&
       order.delivery_latitude !== null &&
       order.delivery_longitude !== null ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -178,6 +186,15 @@ export function OrderTracking({ orderNumber }: { orderNumber: string }) {
               distanceMeters={order.distance_meters}
             />
           </div>
+        </section>
+      ) : null}
+
+      {!isDeliveryOrder ? (
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+          <h2 className="font-display text-lg font-bold">จุดรับสินค้า</h2>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            {order.delivery_address}
+          </p>
         </section>
       ) : null}
 

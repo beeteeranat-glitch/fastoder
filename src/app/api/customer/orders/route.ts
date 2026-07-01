@@ -22,7 +22,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, order_number, status, payable_total, food_total, delivery_fee, discount_total, reward_discount, points_earned, points_redeemed, created_at, updated_at",
+      "id, order_number, order_type, status, payable_total, food_total, delivery_fee, discount_total, reward_discount, points_earned, points_redeemed, created_at, updated_at",
     )
     .eq("restaurant_id", RESTAURANT.id)
     .eq("customer_phone", customer.phone)

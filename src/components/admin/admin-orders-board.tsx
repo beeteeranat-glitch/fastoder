@@ -8,11 +8,12 @@ import { formatPrice } from "@/lib/format";
 import { formatDistance } from "@/lib/delivery-fee";
 import { formatPhoneForDisplay } from "@/lib/phone";
 import {
-  STATUS_ACTION_LABELS,
   canAdminActOnOrder,
   formatOrderDate,
   getNextAdminStatus,
+  orderTypeLabel,
   paymentMethodLabel,
+  statusActionLabelForType,
 } from "@/lib/orders";
 import { ORDERS_REALTIME_SUBS } from "@/lib/realtime-subscriptions";
 import type { DbOrder, DbOrderStatus } from "@/types/database";
@@ -196,13 +197,13 @@ export function AdminOrdersBoard() {
                       {formatPhoneForDisplay(order.customer_phone)}
                     </p>
                     <p className="mt-1 line-clamp-1 text-xs text-[var(--text-muted)]">
-                      {order.delivery_address}
+                      {orderTypeLabel(order.order_type)} · {order.delivery_address}
                     </p>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
                       <span className="text-[var(--text-muted)]">
                         {formatOrderDate(order.created_at)} ·{" "}
                         {paymentMethodLabel(order.payment_method)}
-                        {order.distance_meters !== null
+                        {order.order_type === "delivery" && order.distance_meters !== null
                           ? ` · ${formatDistance(order.distance_meters)}`
                           : ""}
                       </span>
@@ -220,7 +221,7 @@ export function AdminOrdersBoard() {
                         onClick={() => void updateStatus(order.id, nextStatus)}
                         className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
                       >
-                        {busy ? "กำลังอัปเดต..." : STATUS_ACTION_LABELS[nextStatus] ?? "อัปเดตสถานะ"}
+                        {busy ? "กำลังอัปเดต..." : statusActionLabelForType(nextStatus, order.order_type)}
                       </button>
                       {order.status === "PENDING" ? (
                         <button

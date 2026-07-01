@@ -14,7 +14,7 @@ const ACTIVE_STATUSES: DbOrderStatus[] = [
 ];
 
 const ORDER_SELECT =
-  "id, order_number, customer_name, customer_phone, delivery_address, distance_meters, delivery_fee, payable_total, payment_method, status, created_at, updated_at";
+  "id, order_number, customer_name, customer_phone, order_type, delivery_address, distance_meters, delivery_fee, payable_total, payment_method, status, created_at, updated_at";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;

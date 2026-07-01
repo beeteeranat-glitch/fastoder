@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/cart-context";
@@ -53,6 +52,7 @@ const LocationMapPicker = dynamic(
 );
 
 type LocationState = "idle" | "loading" | "ready" | "denied";
+type OrderType = "delivery" | "pickup";
 
 type CustomerLocation = {
   latitude: number;
@@ -76,6 +76,7 @@ export function CheckoutFlow() {
   const [locationState, setLocationState] = useState<LocationState>("idle");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [orderType, setOrderType] = useState<OrderType>("delivery");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash");
   const [customerLocation, setCustomerLocation] =
     useState<CustomerLocation | null>(null);
@@ -193,14 +194,17 @@ export function CheckoutFlow() {
 
   const deliveryRangeLabel = formatDeliveryRangeFromSettings(deliverySettings);
 
+  const effectiveDeliveryFee = orderType === "delivery" ? deliveryFee : 0;
+  const effectiveDistance = orderType === "delivery" ? distance : 0;
+
   const discounts = useMemo(
     () =>
       calcOrderDiscounts({
         foodTotal: total,
-        deliveryFee,
+        deliveryFee: effectiveDeliveryFee,
         promo: appliedPromo,
       }),
-    [total, deliveryFee, appliedPromo],
+    [total, effectiveDeliveryFee, appliedPromo],
   );
 
   const availablePoints = phoneCustomer?.points ?? 0;
@@ -246,8 +250,7 @@ export function CheckoutFlow() {
     );
   }, [useFreeDrinkReward, selectedFreeDrinkItem]);
 
-  const subtotal =
-    deliveryFee !== null ? total + deliveryFee : total;
+  const subtotal = total + (effectiveDeliveryFee ?? 0);
 
   const payableTotal = Math.max(
     0,
@@ -272,27 +275,33 @@ export function CheckoutFlow() {
     });
   }, [addressDetail, streetDetail, customerLocation]);
 
+  const effectiveDeliveryAddress =
+    orderType === "delivery" ? deliveryAddress : `มารับหน้าร้าน: ${shop.address}`;
+
   const submitBlockers = useMemo(() => {
     const blockers: string[] = [];
 
+    if (!shop.isOpen) blockers.push("รอร้านเปิดรับออเดอร์");
     if (!customerName.trim()) blockers.push("กรอกชื่อ");
     if (!isValidPhone(customerPhone)) {
       blockers.push("กรอกเบอร์โทรให้ถูกต้อง (10 หลัก)");
     }
-    if (!customerLocation) {
-      blockers.push("เลือกตำแหน่งจัดส่ง (GPS หรือแผนที่)");
-    } else {
-      if (!inRange) blockers.push("ตำแหน่งอยู่นอกพื้นที่จัดส่ง");
-      if (addressLoading) blockers.push("รอระบบค้นหาที่อยู่");
-      if (
-        !addressDetail.trim() &&
-        !streetDetail.trim() &&
-        !customerLocation.areaAddress?.trim() &&
-        !customerLocation.houseNumber?.trim()
-      ) {
-        blockers.push("กรอกบ้านเลขที่หรือรายละเอียดที่อยู่");
-      } else if (!deliveryAddress?.trim()) {
-        blockers.push("กรอกรายละเอียดที่อยู่ให้ครบ");
+    if (orderType === "delivery") {
+      if (!customerLocation) {
+        blockers.push("เลือกตำแหน่งจัดส่ง (GPS หรือแผนที่)");
+      } else {
+        if (!inRange) blockers.push("ตำแหน่งอยู่นอกพื้นที่จัดส่ง");
+        if (addressLoading) blockers.push("รอระบบค้นหาที่อยู่");
+        if (
+          !addressDetail.trim() &&
+          !streetDetail.trim() &&
+          !customerLocation.areaAddress?.trim() &&
+          !customerLocation.houseNumber?.trim()
+        ) {
+          blockers.push("กรอกบ้านเลขที่หรือรายละเอียดที่อยู่");
+        } else if (!deliveryAddress?.trim()) {
+          blockers.push("กรอกรายละเอียดที่อยู่ให้ครบ");
+        }
       }
     }
     if (paymentMethod === "transfer" && !slipFile) {
@@ -304,6 +313,7 @@ export function CheckoutFlow() {
     customerName,
     customerPhone,
     customerLocation,
+    orderType,
     inRange,
     addressLoading,
     addressDetail,
@@ -311,6 +321,7 @@ export function CheckoutFlow() {
     deliveryAddress,
     paymentMethod,
     slipFile,
+    shop.isOpen,
   ]);
 
   const canSubmit = submitBlockers.length === 0;
@@ -523,13 +534,16 @@ export function CheckoutFlow() {
   };
 
   const handleSubmit = async () => {
+    if (!canSubmit || submitting || !shop.isOpen) {
+      return;
+    }
+
     if (
-      !canSubmit ||
-      submitting ||
-      !customerLocation ||
-      !deliveryAddress ||
-      deliveryFee === null ||
-      distance === null
+      orderType === "delivery" &&
+      (!customerLocation ||
+        !deliveryAddress ||
+        effectiveDeliveryFee === null ||
+        effectiveDistance === null)
     ) {
       return;
     }
@@ -599,12 +613,15 @@ export function CheckoutFlow() {
           customerName,
           customerPhone: normalizePhone(customerPhone),
           customerNote: note.trim() || null,
-          deliveryAddress,
-          deliveryLatitude: customerLocation.latitude,
-          deliveryLongitude: customerLocation.longitude,
-          distanceMeters: distance,
+          orderType,
+          deliveryAddress: effectiveDeliveryAddress,
+          deliveryLatitude:
+            orderType === "delivery" ? customerLocation?.latitude : shop.latitude,
+          deliveryLongitude:
+            orderType === "delivery" ? customerLocation?.longitude : shop.longitude,
+          distanceMeters: effectiveDistance,
           foodTotal: total,
-          deliveryFee,
+          deliveryFee: effectiveDeliveryFee,
           discountTotal: discounts.totalDiscount,
           payableTotal,
           paymentMethod,
@@ -656,6 +673,11 @@ export function CheckoutFlow() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 py-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+      {!shop.isOpen ? (
+        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 lg:col-span-2">
+          ร้านปิดรับออเดอร์อยู่ในขณะนี้ กรุณากลับมาใหม่เมื่อร้านเปิด
+        </p>
+      ) : null}
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
         <h2 className="font-display text-lg font-bold text-[var(--text)]">
           ข้อมูลลูกค้า
@@ -683,11 +705,22 @@ export function CheckoutFlow() {
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
         <h2 className="font-display text-lg font-bold text-[var(--text)]">
-          ตำแหน่งจัดส่ง
+          วิธีรับสินค้า
         </h2>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          จัดส่งได้ในระยะ {deliveryRangeLabel} ค่าส่งคิดตามระยะทาง
-        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <OrderTypeChip
+            label="จัดส่ง"
+            description="คำนวณค่าส่งจากระยะทาง"
+            active={orderType === "delivery"}
+            onClick={() => setOrderType("delivery")}
+          />
+          <OrderTypeChip
+            label="มารับหน้าร้าน"
+            description="ไม่มีค่าส่ง"
+            active={orderType === "pickup"}
+            onClick={() => setOrderType("pickup")}
+          />
+        </div>
 
         <div className="mt-4 rounded-2xl bg-[var(--surface-muted)] p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
@@ -700,6 +733,16 @@ export function CheckoutFlow() {
             {shop.address}
           </p>
         </div>
+
+        {orderType === "pickup" ? (
+          <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            รับสินค้าได้ที่หน้าร้านหลังร้านอัปเดตสถานะว่าพร้อมให้รับ
+          </p>
+        ) : (
+          <>
+            <p className="mt-4 text-sm text-[var(--text-muted)]">
+              จัดส่งได้ในระยะ {deliveryRangeLabel} ค่าส่งคิดตามระยะทาง
+            </p>
 
         <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
           <label className="block">
@@ -846,6 +889,8 @@ export function CheckoutFlow() {
             )}
           </div>
         ) : null}
+          </>
+        )}
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 lg:col-span-2">
@@ -880,7 +925,7 @@ export function CheckoutFlow() {
               </p>
             ) : (
               <p className="text-xs text-[var(--text-muted)]">
-                ทดลอง: SMOOTHIE10, SAVE20, FREESHIP
+                ใส่โค้ดที่ได้รับจากร้าน ถ้าไม่มีให้เว้นว่างไว้
               </p>
             )}
           </div>
@@ -951,28 +996,38 @@ export function CheckoutFlow() {
           </p>
         ) : (
           <div className="mt-4 space-y-3">
-            <p className="text-sm font-semibold text-amber-700">
-              คะแนนคงเหลือ {availablePoints} คะแนน
-            </p>
-
-            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3">
-              <input
-                type="checkbox"
-                checked={useFreeDrinkReward}
-                onChange={(event) =>
-                  setUseFreeDrinkReward(event.target.checked)
-                }
-                className="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--primary)]"
-              />
-              <span>
-                <span className="block text-sm font-bold text-[var(--text)]">
-                  ใช้สิทธิ์แลกเครื่องดื่มฟรี (-{FREE_DRINK_POINTS} คะแนน)
-                </span>
-                <span className="mt-1 block text-xs text-[var(--text-muted)]">
-                  หักจากราคาเครื่องดื่มหลักของรายการที่เลือก
-                </span>
-              </span>
-            </label>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-bold text-amber-900">
+                คุณมี {availablePoints} คะแนน ใช้สิทธิ์แลกฟรีไหม?
+              </p>
+              <p className="mt-1 text-xs text-amber-800">
+                ใช้ {FREE_DRINK_POINTS} คะแนน หักจากราคาเครื่องดื่มหลัก 1 รายการ
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUseFreeDrinkReward(true)}
+                  className={`rounded-xl px-3 py-2.5 text-sm font-bold transition ${
+                    useFreeDrinkReward
+                      ? "bg-[var(--primary)] text-white"
+                      : "border border-[var(--border)] bg-white text-[var(--text)]"
+                  }`}
+                >
+                  ใช้สิทธิ์แลกฟรี
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUseFreeDrinkReward(false)}
+                  className={`rounded-xl px-3 py-2.5 text-sm font-bold transition ${
+                    !useFreeDrinkReward
+                      ? "bg-[var(--surface)] text-[var(--primary)] ring-1 ring-[var(--primary)]"
+                      : "border border-[var(--border)] bg-white text-[var(--text-muted)]"
+                  }`}
+                >
+                  ไม่ใช้สิทธิ์
+                </button>
+              </div>
+            </div>
 
             {useFreeDrinkReward && items.length > 1 ? (
               <div className="space-y-2">
@@ -1159,19 +1214,25 @@ export function CheckoutFlow() {
             <span className="text-[var(--text-muted)]">ยอดอาหาร</span>
             <span className="text-[var(--text)]">{formatPrice(total)}</span>
           </div>
-          {deliveryFee !== null ? (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-[var(--text-muted)]">วิธีรับสินค้า</span>
+            <span className="font-medium text-[var(--text)]">
+              {orderType === "pickup" ? "มารับหน้าร้าน" : "จัดส่ง"}
+            </span>
+          </div>
+          {effectiveDeliveryFee !== null ? (
             <div className="flex items-center justify-between text-sm">
               <span className="text-[var(--text-muted)]">ค่าจัดส่ง</span>
               <span className="text-[var(--text)]">
                 {discounts.deliveryDiscount > 0 ? (
                   <>
                     <span className="mr-2 text-[var(--text-muted)] line-through">
-                      {formatPrice(deliveryFee)}
+                      {formatPrice(effectiveDeliveryFee)}
                     </span>
-                    {formatPrice(Math.max(0, deliveryFee - discounts.deliveryDiscount))}
+                    {formatPrice(Math.max(0, effectiveDeliveryFee - discounts.deliveryDiscount))}
                   </>
                 ) : (
-                  formatPrice(deliveryFee)
+                  formatPrice(effectiveDeliveryFee)
                 )}
               </span>
             </div>
@@ -1355,6 +1416,33 @@ function PaymentChip({
       }`}
     >
       {label}
+    </button>
+  );
+}
+
+function OrderTypeChip({
+  label,
+  description,
+  active,
+  onClick,
+}: {
+  label: string;
+  description: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl border px-3 py-3 text-left transition ${
+        active
+          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--text)]"
+          : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)]"
+      }`}
+    >
+      <span className="block text-sm font-bold">{label}</span>
+      <span className="mt-1 block text-xs">{description}</span>
     </button>
   );
 }

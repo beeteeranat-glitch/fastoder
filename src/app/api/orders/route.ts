@@ -28,7 +28,9 @@ import { lookupReferrerInDb } from "@/lib/referrer-lookup";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { createServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { fetchRestaurantFromDb } from "@/lib/restaurant-data";
 import type { DbOrderItem } from "@/types/database";
+import type { DbOrderType } from "@/types/database";
 
 type CreateOrderItem = {
   productId: string;
@@ -46,6 +48,7 @@ type CreateOrderBody = {
   customerName: string;
   customerPhone: string;
   customerNote?: string;
+  orderType?: DbOrderType;
   deliveryAddress: string;
   deliveryLatitude: number;
   deliveryLongitude: number;
@@ -72,6 +75,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "ยังไม่ได้ตั้งค่า Supabase" },
       { status: 503 },
+    );
+  }
+
+  const shop = await fetchRestaurantFromDb();
+  if (!shop) {
+    return NextResponse.json(
+      { error: "โหลดสถานะร้านไม่สำเร็จ" },
+      { status: 500 },
+    );
+  }
+
+  if (!shop.isOpen) {
+    return NextResponse.json(
+      { error: "ร้านปิดรับออเดอร์อยู่ในขณะนี้" },
+      { status: 403 },
     );
   }
 
@@ -110,6 +128,8 @@ export async function POST(request: NextRequest) {
     return badRequest("ออเดอร์เงินสดไม่ต้องแนบสลิป");
   }
 
+  const orderType: DbOrderType = body.orderType === "pickup" ? "pickup" : "delivery";
+
   const deliverySettingsResponse = await fetchDeliverySettingsFromDb();
   const deliverySettings = deliverySettingsResponse
     ? toDeliverySettings(deliverySettingsResponse)
@@ -122,16 +142,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!isDeliverableFromSettings(body.distanceMeters, deliverySettings)) {
-    return badRequest("อยู่นอกเขตจัดส่ง");
-  }
+  let serverDeliveryFee = 0;
+  if (orderType === "delivery") {
+    if (!isDeliverableFromSettings(body.distanceMeters, deliverySettings)) {
+      return badRequest("อยู่นอกเขตจัดส่ง");
+    }
 
-  const serverDeliveryFee = calcDeliveryFeeFromSettings(
-    body.distanceMeters,
-    deliverySettings,
-  );
-  if (serverDeliveryFee === null) {
-    return badRequest("คำนวณค่าส่งไม่ได้");
+    const deliveryFee = calcDeliveryFeeFromSettings(
+      body.distanceMeters,
+      deliverySettings,
+    );
+    if (deliveryFee === null) {
+      return badRequest("คำนวณค่าส่งไม่ได้");
+    }
+    serverDeliveryFee = deliveryFee;
+  } else if (body.deliveryFee !== 0 || body.distanceMeters !== 0) {
+    return badRequest("ออเดอร์รับหน้าร้านต้องไม่มีค่าส่ง");
   }
 
   const computedFoodTotal = body.items.reduce(
@@ -223,6 +249,7 @@ export async function POST(request: NextRequest) {
       restaurant_id: RESTAURANT.id,
       customer_name: body.customerName.trim(),
       customer_phone: customerPhone,
+      order_type: orderType,
       customer_note: body.customerNote?.trim() || null,
       delivery_address: body.deliveryAddress.trim(),
       delivery_latitude: body.deliveryLatitude,

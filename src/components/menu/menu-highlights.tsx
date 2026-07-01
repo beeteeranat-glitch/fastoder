@@ -8,11 +8,13 @@ export function MenuHighlights({
   emoji,
   products,
   onSelect,
+  disabled,
 }: {
   title: string;
   emoji: string;
   products: Product[];
   onSelect: (product: Product) => void;
+  disabled?: boolean;
 }) {
   if (products.length === 0) return null;
 
@@ -32,6 +34,7 @@ export function MenuHighlights({
             key={`${title}-${product.id}`}
             product={product}
             onSelect={onSelect}
+            disabled={disabled}
           />
         ))}
       </div>

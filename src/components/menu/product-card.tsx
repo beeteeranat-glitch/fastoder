@@ -5,9 +5,10 @@ import { MenuItemVisual } from "@/components/menu/menu-item-visual";
 interface ProductCardProps {
   product: Product;
   onSelect: (product: Product) => void;
+  disabled?: boolean;
 }
 
-export function ProductCard({ product, onSelect }: ProductCardProps) {
+export function ProductCard({ product, onSelect, disabled }: ProductCardProps) {
   return (
     <article className="menu-row group flex items-center gap-3 p-3 sm:gap-4 sm:p-3.5">
       <MenuItemVisual
@@ -34,10 +35,13 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
         </span>
         <button
           type="button"
-          onClick={() => onSelect(product)}
-          className="btn-primary px-3.5 py-2 text-sm sm:px-4"
+          onClick={() => !disabled && onSelect(product)}
+          disabled={disabled}
+          className={`btn-primary px-3.5 py-2 text-sm sm:px-4 ${
+            disabled ? "cursor-not-allowed opacity-60" : ""
+          }`}
         >
-          เลือก
+          {disabled ? "ร้านปิด" : "เลือก"}
         </button>
       </div>
     </article>
