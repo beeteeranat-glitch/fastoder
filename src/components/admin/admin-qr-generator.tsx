@@ -5,13 +5,17 @@ import QRCode from "qrcode";
 
 export function AdminQrGenerator() {
   const [menuUrl, setMenuUrl] = useState("");
+  const [adminUrl, setAdminUrl] = useState("");
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const url = `${window.location.origin}/menu`;
-    setMenuUrl(url);
-    void QRCode.toDataURL(url, {
+    const origin = window.location.origin;
+    const nextMenuUrl = `${origin}/menu`;
+    const nextAdminUrl = `${origin}/admin`;
+    setMenuUrl(nextMenuUrl);
+    setAdminUrl(nextAdminUrl);
+    void QRCode.toDataURL(nextMenuUrl, {
       width: 280,
       margin: 2,
       color: { dark: "#0f172a", light: "#ffffff" },
@@ -46,9 +50,14 @@ export function AdminQrGenerator() {
       <p className="mt-1 text-sm text-[var(--text-muted)]">
         ลูกค้าสแกนเพื่อเปิดเมนูและสั่งซื้อ
       </p>
-      <p className="mt-2 break-all rounded-xl bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--text-muted)]">
-        {menuUrl}
-      </p>
+      <div className="mt-2 grid gap-2">
+        <p className="break-all rounded-xl bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--text-muted)]">
+          {menuUrl}
+        </p>
+        <p className="break-all rounded-xl bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--text-muted)]">
+          {adminUrl}
+        </p>
+      </div>
 
       <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
         {dataUrl ? (
