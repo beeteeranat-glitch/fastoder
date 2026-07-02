@@ -65,7 +65,14 @@ export function calcDeliveryFeeFromSettings(
   const billed = getBilledMeters(distanceMeters, settings);
   if (billed === null) return null;
   const feeMap = getFeeMap(settings);
-  return feeMap[billed] ?? null;
+  const exactFee = feeMap[billed];
+  if (exactFee !== undefined) return exactFee;
+
+  const fallbackTier = [...settings.tiers]
+    .filter((tier) => tier.distanceMeters <= billed)
+    .sort((a, b) => b.distanceMeters - a.distanceMeters)[0];
+
+  return fallbackTier?.feeBaht ?? null;
 }
 
 export function calcDeliveryMinimumSurcharge(

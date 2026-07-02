@@ -299,6 +299,7 @@ export function CheckoutFlow() {
         blockers.push("เลือกตำแหน่งจัดส่ง (GPS หรือแผนที่)");
       } else {
         if (!inRange) blockers.push("ตำแหน่งอยู่นอกพื้นที่จัดส่ง");
+        if (inRange && deliveryFee === null) blockers.push("คำนวณค่าส่งไม่ได้");
         if (addressLoading) blockers.push("รอระบบค้นหาที่อยู่");
         if (
           !addressDetail.trim() &&
@@ -323,6 +324,7 @@ export function CheckoutFlow() {
     customerLocation,
     orderType,
     inRange,
+    deliveryFee,
     addressLoading,
     addressDetail,
     streetDetail,
@@ -892,6 +894,8 @@ export function CheckoutFlow() {
                   : ""}{" "}
                 — ค่าส่ง {formatPrice(deliveryFee)}
               </>
+            ) : inRange ? (
+              `ระยะทาง ${formatDistance(distance)} — ยังไม่มีค่าส่งสำหรับระยะนี้`
             ) : (
               `✕ ระยะทาง ${formatDistance(distance)} — จัดส่งได้ในระยะ ${deliveryRangeLabel}`
             )}
