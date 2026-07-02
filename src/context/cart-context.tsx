@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -28,13 +29,38 @@ interface CartContextValue {
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
+const CART_STORAGE_KEY = "fastorder-cart-items";
 
 function createCartItemId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function readStoredCartItems() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as CartItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [cartLoaded, setCartLoaded] = useState(false);
+
+  useEffect(() => {
+    setItems(readStoredCartItems());
+    setCartLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!cartLoaded || typeof window === "undefined") return;
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  }, [items, cartLoaded]);
 
   const addItem = useCallback((payload: AddToCartPayload) => {
     setItems((current) => [
