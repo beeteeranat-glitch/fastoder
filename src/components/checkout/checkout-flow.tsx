@@ -16,6 +16,8 @@ import { reverseGeocode } from "@/lib/reverse-geocode";
 import { formatDeliveryAddress } from "@/lib/format-address";
 import {
   calcDeliveryFeeFromSettings,
+  calcDeliveryMinimumSurcharge,
+  DELIVERY_MINIMUM_FOOD_TOTAL,
   DEFAULT_DELIVERY_SETTINGS,
   formatDeliveryRangeFromSettings,
   formatDistance,
@@ -250,7 +252,13 @@ export function CheckoutFlow() {
     );
   }, [useFreeDrinkReward, selectedFreeDrinkItem]);
 
-  const subtotal = total + (effectiveDeliveryFee ?? 0);
+  const deliveryMinimumSurcharge = calcDeliveryMinimumSurcharge(
+    total,
+    orderType,
+  );
+
+  const subtotal =
+    total + deliveryMinimumSurcharge + (effectiveDeliveryFee ?? 0);
 
   const payableTotal = Math.max(
     0,
@@ -1214,6 +1222,16 @@ export function CheckoutFlow() {
             <span className="text-[var(--text-muted)]">ยอดอาหาร</span>
             <span className="text-[var(--text)]">{formatPrice(total)}</span>
           </div>
+          {deliveryMinimumSurcharge > 0 ? (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[var(--text-muted)]">
+                ส่วนต่างขั้นต่ำจัดส่ง {formatPrice(DELIVERY_MINIMUM_FOOD_TOTAL)}
+              </span>
+              <span className="text-[var(--text)]">
+                {formatPrice(deliveryMinimumSurcharge)}
+              </span>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between text-sm">
             <span className="text-[var(--text-muted)]">วิธีรับสินค้า</span>
             <span className="font-medium text-[var(--text)]">

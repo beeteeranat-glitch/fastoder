@@ -19,11 +19,25 @@ function digitsOnly(value: string) {
   return value.replace(/[^\d.]/g, "");
 }
 
+function wholeDigitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 function parseCoord(value: string, label: string) {
   const normalized = value.trim();
   if (!normalized) throw new Error(`กรอก${label}`);
   const num = Number(normalized);
   if (!Number.isFinite(num)) throw new Error(`${label}ไม่ถูกต้อง`);
+  return num;
+}
+
+function parseMeters(value: string, label: string) {
+  const normalized = value.trim();
+  if (!normalized) throw new Error(`กรอก${label}`);
+  const num = Number(normalized);
+  if (!Number.isInteger(num) || num <= 0) {
+    throw new Error(`${label}ต้องเป็นจำนวนเต็มบวก`);
+  }
   return num;
 }
 
@@ -44,6 +58,9 @@ export function AdminShopSettings() {
   const [isOpen, setIsOpen] = useState(true);
   const [openDays, setOpenDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [closeMinutes, setCloseMinutes] = useState("30");
+  const [deliveryMinMeters, setDeliveryMinMeters] = useState("500");
+  const [deliveryMaxMeters, setDeliveryMaxMeters] = useState("2000");
+  const [deliveryBlockMeters, setDeliveryBlockMeters] = useState("500");
 
   const loadShop = useCallback(async () => {
     try {
@@ -63,6 +80,9 @@ export function AdminShopSettings() {
       setPaymentQrUrl(data.shop.paymentQrUrl);
       setIsOpen(data.shop.isManuallyOpen ?? data.shop.isOpen);
       setOpenDays(data.shop.openDays);
+      setDeliveryMinMeters(String(data.shop.deliveryMinMeters));
+      setDeliveryMaxMeters(String(data.shop.deliveryMaxMeters));
+      setDeliveryBlockMeters(String(data.shop.deliveryBlockMeters));
       if (data.shop.closingUntil) {
         const remaining = Math.max(
           1,
@@ -96,6 +116,13 @@ export function AdminShopSettings() {
       const closingUntil = !isOpen && minutes > 0
         ? new Date(Date.now() + minutes * 60000).toISOString()
         : null;
+      const minMeters = parseMeters(deliveryMinMeters, "ระยะเริ่มต้นจัดส่ง");
+      const maxMeters = parseMeters(deliveryMaxMeters, "ระยะส่งสูงสุด");
+      const blockMeters = parseMeters(deliveryBlockMeters, "ช่วงปัดระยะ");
+
+      if (maxMeters < minMeters) {
+        throw new Error("ระยะส่งสูงสุดต้องมากกว่าหรือเท่ากับระยะเริ่มต้น");
+      }
 
       const res = await fetch("/api/admin/restaurant", {
         method: "PATCH",
@@ -113,6 +140,9 @@ export function AdminShopSettings() {
           bank_account_number: bankAccountNumber,
           bank_account_name: bankAccountName,
           payment_qr_url: paymentQrUrl,
+          delivery_min_meters: minMeters,
+          delivery_radius_meters: maxMeters,
+          delivery_block_meters: blockMeters,
         }),
       });
       const data = (await res.json()) as { error?: string };
@@ -210,6 +240,62 @@ export function AdminShopSettings() {
           <p className="text-xs text-[var(--text-muted)]">
             พิกัดใช้คำนวณระยะจัดส่ง — ถ้าเปลี่ยนที่อยู่ควรอัปเดตพิกัดให้ตรงด้วย
           </p>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <h2 className="font-display text-lg font-bold text-[var(--text)]">
+          ระยะทางจัดส่ง
+        </h2>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          ตั้งค่าระยะที่ระบบใช้ตรวจเขตจัดส่งและปัดระยะเพื่อคิดค่าส่ง
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-[var(--text-muted)]">
+              เริ่มคิดที่กี่เมตร
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={deliveryMinMeters}
+              onChange={(event) =>
+                setDeliveryMinMeters(wholeDigitsOnly(event.target.value))
+              }
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2.5 text-sm tabular-nums"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-[var(--text-muted)]">
+              ส่งได้ถึงกี่กิโลเมตร
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={deliveryMaxMeters}
+              onChange={(event) =>
+                setDeliveryMaxMeters(wholeDigitsOnly(event.target.value))
+              }
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2.5 text-sm tabular-nums"
+            />
+            <span className="mt-1 block text-xs text-[var(--text-muted)]">
+              ใส่เป็นเมตร เช่น 2000 = 2 กิโลเมตร
+            </span>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-[var(--text-muted)]">
+              ปัดระยะทีละกี่เมตร
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={deliveryBlockMeters}
+              onChange={(event) =>
+                setDeliveryBlockMeters(wholeDigitsOnly(event.target.value))
+              }
+              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2.5 text-sm tabular-nums"
+            />
+          </label>
         </div>
       </section>
 

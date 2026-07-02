@@ -110,6 +110,14 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
 
   const nextStatus = getNextAdminStatus(order.status);
   const isPickup = order.order_type === "pickup";
+  const deliveryMinimumSurcharge = Math.max(
+    0,
+    order.payable_total -
+      (order.food_total +
+        order.delivery_fee -
+        order.discount_total -
+        (order.reward_discount ?? 0)),
+  );
 
   return (
     <div className="space-y-4">
@@ -321,6 +329,14 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                 <dt className="text-[var(--text-muted)]">ค่าจัดส่ง</dt>
                 <dd>{formatPrice(order.delivery_fee)}</dd>
               </div>
+              {deliveryMinimumSurcharge > 0 ? (
+                <div className="flex justify-between">
+                  <dt className="text-[var(--text-muted)]">
+                    ส่วนต่างขั้นต่ำจัดส่ง
+                  </dt>
+                  <dd>{formatPrice(deliveryMinimumSurcharge)}</dd>
+                </div>
+              ) : null}
               {order.discount_total > 0 ? (
                 <div className="flex justify-between text-emerald-700">
                   <dt>ส่วนลด</dt>

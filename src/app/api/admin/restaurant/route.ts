@@ -48,6 +48,9 @@ export async function PATCH(request: NextRequest) {
     bank_account_number?: string | null;
     bank_account_name?: string | null;
     payment_qr_url?: string | null;
+    delivery_min_meters?: number;
+    delivery_radius_meters?: number;
+    delivery_block_meters?: number;
   };
 
   if (!body.name?.trim() || !body.address?.trim()) {
@@ -83,6 +86,33 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const deliveryMinMeters = body.delivery_min_meters;
+  const deliveryMaxMeters = body.delivery_radius_meters;
+  const deliveryBlockMeters = body.delivery_block_meters;
+  const hasDeliverySettings =
+    deliveryMinMeters !== undefined ||
+    deliveryMaxMeters !== undefined ||
+    deliveryBlockMeters !== undefined;
+
+  if (
+    hasDeliverySettings &&
+    (typeof deliveryMinMeters !== "number" ||
+      typeof deliveryMaxMeters !== "number" ||
+      typeof deliveryBlockMeters !== "number" ||
+      !Number.isInteger(deliveryMinMeters) ||
+      !Number.isInteger(deliveryMaxMeters) ||
+      !Number.isInteger(deliveryBlockMeters) ||
+      deliveryMinMeters <= 0 ||
+      deliveryMaxMeters <= 0 ||
+      deliveryBlockMeters <= 0 ||
+      deliveryMaxMeters < deliveryMinMeters)
+  ) {
+    return NextResponse.json(
+      { error: "ระยะจัดส่งต้องเป็นจำนวนเต็มบวก และระยะสูงสุดต้องมากกว่าหรือเท่ากับระยะเริ่มต้น" },
+      { status: 400 },
+    );
+  }
+
   const shop = await updateRestaurantInDb({
     name: body.name.trim(),
     address: body.address.trim(),
@@ -96,6 +126,9 @@ export async function PATCH(request: NextRequest) {
     bank_account_number: body.bank_account_number?.trim() || null,
     bank_account_name: body.bank_account_name?.trim() || null,
     payment_qr_url: body.payment_qr_url ?? null,
+    delivery_min_meters: deliveryMinMeters,
+    delivery_radius_meters: deliveryMaxMeters,
+    delivery_block_meters: deliveryBlockMeters,
   });
 
   if (!shop) {

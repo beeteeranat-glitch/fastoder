@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDeliveryRange } from "@/lib/delivery-fee";
+import { formatDeliveryRangeFromMeters } from "@/lib/delivery-fee";
 import type { ReactNode } from "react";
 import { useShop } from "@/context/shop-context";
 import { ShopLogo } from "@/components/shop/shop-logo";
@@ -8,6 +8,10 @@ import { ShopStatusBadge } from "@/components/shop/shop-status-badge";
 
 export function MenuShopHeader({ tabs }: { tabs: ReactNode }) {
   const { shop } = useShop();
+  const deliveryRange = formatDeliveryRangeFromMeters(
+    shop.deliveryMinMeters,
+    shop.deliveryMaxMeters,
+  );
 
   return (
     <header className="glass-panel sticky top-0 z-30 border-b border-[var(--border)]">
@@ -26,7 +30,7 @@ export function MenuShopHeader({ tabs }: { tabs: ReactNode }) {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <ShopStatusBadge shop={shop} compact />
               <span className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)] ring-1 ring-[var(--border)]">
-                จัดส่ง {formatDeliveryRange()}
+                จัดส่ง {deliveryRange}
               </span>
             </div>
           </div>

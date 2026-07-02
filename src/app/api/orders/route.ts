@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { RESTAURANT } from "@/data/menu";
 import {
   calcDeliveryFeeFromSettings,
+  calcDeliveryMinimumSurcharge,
   isDeliverableFromSettings,
 } from "@/lib/delivery-fee";
 import {
@@ -217,9 +218,18 @@ export async function POST(request: NextRequest) {
     rewardCustomerId = rewardCustomer.id;
   }
 
+  const deliveryMinimumSurcharge = calcDeliveryMinimumSurcharge(
+    computedFoodTotal,
+    orderType,
+  );
+
   const payableTotal = Math.max(
     0,
-    computedFoodTotal + serverDeliveryFee - discountTotal - rewardDiscount,
+    computedFoodTotal +
+      deliveryMinimumSurcharge +
+      serverDeliveryFee -
+      discountTotal -
+      rewardDiscount,
   );
 
   if (

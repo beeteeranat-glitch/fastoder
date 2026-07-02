@@ -2,11 +2,11 @@ import { RESTAURANT } from "@/data/menu";
 import { createServerClient } from "@/lib/supabase/server";
 import type { DbPointTransaction } from "@/types/database";
 
-/** 1 บาท = 1 คะแนน */
+/** 100 บาท = 10 คะแนน */
 export const FREE_DRINK_POINTS = 100;
 
 export function calcEarnedPoints(payableTotal: number) {
-  return Math.max(0, Math.floor(payableTotal));
+  return Math.max(0, Math.floor(payableTotal / 100) * 10);
 }
 
 export function calcFreeDrinkDiscount(basePrice: number, quantity: number) {

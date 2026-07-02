@@ -17,6 +17,8 @@ export const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
   ],
 };
 
+export const DELIVERY_MINIMUM_FOOD_TOTAL = 100;
+
 /** @deprecated ใช้ DeliverySettings แทน */
 export const DELIVERY_MIN_METERS = DEFAULT_DELIVERY_SETTINGS.minMeters;
 /** @deprecated ใช้ DeliverySettings แทน */
@@ -40,8 +42,15 @@ function getBilledMeters(distanceMeters: number, settings: DeliverySettings) {
 }
 
 export function formatDeliveryRangeFromSettings(settings: DeliverySettings) {
-  const min = formatDistance(settings.minMeters);
-  const max = formatDistance(settings.maxMeters);
+  return formatDeliveryRangeFromMeters(settings.minMeters, settings.maxMeters);
+}
+
+export function formatDeliveryRangeFromMeters(
+  minMeters: number,
+  maxMeters: number,
+) {
+  const min = formatDistance(minMeters);
+  const max = formatDistance(maxMeters);
   return `${min} – ${max}`;
 }
 
@@ -57,6 +66,14 @@ export function calcDeliveryFeeFromSettings(
   if (billed === null) return null;
   const feeMap = getFeeMap(settings);
   return feeMap[billed] ?? null;
+}
+
+export function calcDeliveryMinimumSurcharge(
+  foodTotal: number,
+  orderType: "delivery" | "pickup" = "delivery",
+) {
+  if (orderType !== "delivery") return 0;
+  return Math.max(0, DELIVERY_MINIMUM_FOOD_TOTAL - foodTotal);
 }
 
 export function isDeliverableFromSettings(

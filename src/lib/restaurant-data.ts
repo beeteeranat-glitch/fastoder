@@ -17,6 +17,9 @@ export type ShopProfile = {
   bankAccountNumber: string | null;
   bankAccountName: string | null;
   paymentQrUrl: string | null;
+  deliveryMinMeters: number;
+  deliveryMaxMeters: number;
+  deliveryBlockMeters: number;
 };
 
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
@@ -41,6 +44,9 @@ export const DEFAULT_SHOP: ShopProfile = {
   bankAccountNumber: "123-4-56789-0",
   bankAccountName: RESTAURANT.name,
   paymentQrUrl: "/payment-qr-example.svg",
+  deliveryMinMeters: 500,
+  deliveryMaxMeters: RESTAURANT.deliveryRadius,
+  deliveryBlockMeters: 500,
 };
 
 function getShopWeekday(date = new Date()) {
@@ -84,6 +90,9 @@ export function mapRestaurant(row: DbRestaurant): ShopProfile {
     bankAccountNumber: row.bank_account_number ?? null,
     bankAccountName: row.bank_account_name ?? null,
     paymentQrUrl: row.payment_qr_url ?? null,
+    deliveryMinMeters: row.delivery_min_meters,
+    deliveryMaxMeters: row.delivery_radius_meters,
+    deliveryBlockMeters: row.delivery_block_meters,
   };
 }
 
@@ -129,6 +138,9 @@ export async function updateRestaurantInDb(updates: {
   bank_account_number?: string | null;
   bank_account_name?: string | null;
   payment_qr_url?: string | null;
+  delivery_min_meters?: number;
+  delivery_radius_meters?: number;
+  delivery_block_meters?: number;
 }) {
   const supabase = createServerClient();
   const { data, error } = await supabase
