@@ -2,8 +2,9 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { PRIVATE_ORDER_FILES_BUCKET } from "@/lib/private-order-files";
 
-const BUCKET = "menu-images";
+const BUCKET = PRIVATE_ORDER_FILES_BUCKET;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export async function POST(request: NextRequest) {
@@ -50,12 +51,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "อัปโหลดสลิปไม่สำเร็จ — ตรวจสอบ bucket menu-images ใน Supabase Storage",
+          "อัปโหลดสลิปไม่สำเร็จ — ตรวจสอบ bucket order-documents ใน Supabase Storage",
       },
       { status: 500 },
     );
   }
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return NextResponse.json({ url: data.publicUrl });
+  return NextResponse.json({ path });
 }

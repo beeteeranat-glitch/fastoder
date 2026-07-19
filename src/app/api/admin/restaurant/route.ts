@@ -43,6 +43,8 @@ export async function PATCH(request: NextRequest) {
     is_open?: boolean;
     closing_until?: string | null;
     open_days?: number[];
+    opening_time?: string;
+    closing_time?: string;
     logo_url?: string | null;
     bank_name?: string | null;
     bank_account_number?: string | null;
@@ -86,6 +88,22 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const openingTime = body.opening_time ?? "";
+  const closingTime = body.closing_time ?? "";
+  const isValidTime = (value: string) =>
+    /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+
+  if (
+    !isValidTime(openingTime) ||
+    !isValidTime(closingTime) ||
+    openingTime >= closingTime
+  ) {
+    return NextResponse.json(
+      { error: "กรุณาระบุเวลาเปิดและเวลาปิดให้ถูกต้อง โดยเวลาเปิดต้องมาก่อนเวลาปิด" },
+      { status: 400 },
+    );
+  }
+
   const deliveryMinMeters = body.delivery_min_meters;
   const deliveryMaxMeters = body.delivery_radius_meters;
   const deliveryBlockMeters = body.delivery_block_meters;
@@ -121,6 +139,8 @@ export async function PATCH(request: NextRequest) {
     is_open: typeof body.is_open === "boolean" ? body.is_open : undefined,
     closing_until: body.closing_until ?? null,
     open_days: Array.from(new Set(openDays)).sort((a, b) => a - b),
+    opening_time: openingTime,
+    closing_time: closingTime,
     logo_url: body.logo_url ?? null,
     bank_name: body.bank_name?.trim() || null,
     bank_account_number: body.bank_account_number?.trim() || null,
@@ -135,7 +155,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "บันทึกไม่สำเร็จ — ถ้ายังไม่มีคอลัมน์ใหม่ ให้รัน migration 016_restaurant_open_days.sql",
+          "บันทึกไม่สำเร็จ — ให้รัน migration 018_restaurant_business_hours.sql ก่อน",
       },
       { status: 500 },
     );

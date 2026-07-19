@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCustomerAuth } from "@/context/customer-auth-context";
+import { useLoyaltySettings } from "@/hooks/use-loyalty-settings";
 import { formatPrice } from "@/lib/format";
 import { formatPhoneForDisplay } from "@/lib/phone";
-import { FREE_DRINK_POINTS } from "@/lib/points-data";
 
 export function ProfileView() {
   const { customer, loading, logout, refresh } = useCustomerAuth();
+  const loyaltySettings = useLoyaltySettings();
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [saving, setSaving] = useState(false);
@@ -95,7 +96,7 @@ export function ProfileView() {
           {customer.points}
         </p>
         <p className="mt-2 text-xs text-amber-800/80">
-          สะสม 10 คะแนนทุก 100 บาท · แลกเครื่องดื่มฟรีได้ที่ {FREE_DRINK_POINTS} คะแนน
+          สะสม {loyaltySettings.earnPoints} คะแนนทุก {loyaltySettings.earnSpendAmount} บาท · แลกเครื่องดื่มฟรีได้ที่ {loyaltySettings.redemptionPoints} คะแนน
         </p>
         <Link
           href="/rewards"

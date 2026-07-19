@@ -56,6 +56,14 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   }, [shop.isOpen, shop.closingUntil, reload]);
 
   useEffect(() => {
+    const delay = 60_000 - (Date.now() % 60_000) + 250;
+    const timer = window.setTimeout(() => {
+      void reload();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [reload, shop.closingTime, shop.openingTime, shop.openDays]);
+
+  useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
 
     const channel = new BroadcastChannel("fastorder-shop-updates");

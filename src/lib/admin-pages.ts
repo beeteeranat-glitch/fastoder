@@ -31,6 +31,13 @@ export const ADMIN_PAGES: AdminPageConfig[] = [
     icon: "📋",
   },
   {
+    href: "/rider?from=admin",
+    navLabel: "ไรเดอร์",
+    title: "งานจัดส่ง",
+    subtitle: "เข้าสู่หน้าจัดการงานสำหรับไรเดอร์",
+    icon: "🛵",
+  },
+  {
     href: "/admin/menu",
     navLabel: "เมนู",
     title: "จัดการเมนู",

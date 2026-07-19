@@ -35,8 +35,8 @@ import {
 import type { ReferrerDefinition } from "@/lib/referrer-lookup";
 import {
   calcFreeDrinkDiscount,
-  FREE_DRINK_POINTS,
 } from "@/lib/points-data";
+import { useLoyaltySettings } from "@/hooks/use-loyalty-settings";
 import {
   formatPhoneInput,
   isValidPhone,
@@ -54,7 +54,7 @@ const LocationMapPicker = dynamic(
 );
 
 type LocationState = "idle" | "loading" | "ready" | "denied";
-type OrderType = "delivery" | "pickup";
+type OrderType = "delivery" | "pickup" | "table_service";
 
 type CustomerLocation = {
   latitude: number;
@@ -73,13 +73,18 @@ export function CheckoutFlow() {
   const { shop } = useShop();
   const { customer, refresh: refreshCustomer } = useCustomerAuth();
   const { items, clearCart } = useCart();
+  const loyaltySettings = useLoyaltySettings();
   const total = calcCartTotal(items);
 
   const [locationState, setLocationState] = useState<LocationState>("idle");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [orderType, setOrderType] = useState<OrderType>("delivery");
+  const [tableNumber, setTableNumber] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash");
+  const [copyAccountStatus, setCopyAccountStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
   const [customerLocation, setCustomerLocation] =
     useState<CustomerLocation | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
@@ -114,6 +119,20 @@ export function CheckoutFlow() {
   );
   const slipInputRef = useRef<HTMLInputElement>(null);
   const profilePrefilledRef = useRef(false);
+
+  const copyBankAccountNumber = async () => {
+    const accountNumber = shop.bankAccountNumber?.trim();
+    if (!accountNumber) return;
+
+    try {
+      await navigator.clipboard.writeText(accountNumber);
+      setCopyAccountStatus("success");
+    } catch {
+      setCopyAccountStatus("error");
+    }
+
+    window.setTimeout(() => setCopyAccountStatus("idle"), 2_500);
+  };
 
   useEffect(() => {
     if (!customer || profilePrefilledRef.current) return;
@@ -212,7 +231,7 @@ export function CheckoutFlow() {
   const availablePoints = phoneCustomer?.points ?? 0;
 
   const canRedeemFreeDrink =
-    phoneCustomer !== null && availablePoints >= FREE_DRINK_POINTS;
+    phoneCustomer !== null && availablePoints >= loyaltySettings.redemptionPoints;
 
   const defaultFreeDrinkItem = useMemo(() => {
     if (items.length === 0) return null;
@@ -284,7 +303,11 @@ export function CheckoutFlow() {
   }, [addressDetail, streetDetail, customerLocation]);
 
   const effectiveDeliveryAddress =
-    orderType === "delivery" ? deliveryAddress : `มารับหน้าร้าน: ${shop.address}`;
+    orderType === "delivery"
+      ? deliveryAddress
+      : orderType === "table_service"
+        ? `โต๊ะ ${tableNumber.trim()}`
+        : `มารับหน้าร้าน: ${shop.address}`;
 
   const submitBlockers = useMemo(() => {
     const blockers: string[] = [];
@@ -313,6 +336,9 @@ export function CheckoutFlow() {
         }
       }
     }
+    if (orderType === "table_service" && !tableNumber.trim()) {
+      blockers.push("กรอกหมายเลขหรือชื่อโต๊ะ");
+    }
     if (paymentMethod === "transfer" && !slipFile) {
       blockers.push("แนบสลิปโอนเงิน");
     }
@@ -329,6 +355,7 @@ export function CheckoutFlow() {
     addressDetail,
     streetDetail,
     deliveryAddress,
+    tableNumber,
     paymentMethod,
     slipFile,
     shop.isOpen,
@@ -576,13 +603,13 @@ export function CheckoutFlow() {
           body: slipForm,
         });
         const slipData = (await slipRes.json()) as {
-          url?: string;
+          path?: string;
           error?: string;
         };
-        if (!slipRes.ok || !slipData.url) {
+        if (!slipRes.ok || !slipData.path) {
           throw new Error(slipData.error ?? "อัปโหลดสลิปไม่สำเร็จ");
         }
-        paymentSlipUrl = slipData.url;
+        paymentSlipUrl = slipData.path;
       }
 
       const mappedItems = items.map((item) => {
@@ -624,6 +651,7 @@ export function CheckoutFlow() {
           customerPhone: normalizePhone(customerPhone),
           customerNote: note.trim() || null,
           orderType,
+          tableNumber: tableNumber.trim() || null,
           deliveryAddress: effectiveDeliveryAddress,
           deliveryLatitude:
             orderType === "delivery" ? customerLocation?.latitude : shop.latitude,
@@ -717,7 +745,7 @@ export function CheckoutFlow() {
         <h2 className="font-display text-lg font-bold text-[var(--text)]">
           วิธีรับสินค้า
         </h2>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
           <OrderTypeChip
             label="จัดส่ง"
             description="คำนวณค่าส่งจากระยะทาง"
@@ -729,6 +757,12 @@ export function CheckoutFlow() {
             description="ไม่มีค่าส่ง"
             active={orderType === "pickup"}
             onClick={() => setOrderType("pickup")}
+          />
+          <OrderTypeChip
+            label="ส่งที่โต๊ะ"
+            description="ระบุโต๊ะ · ไม่มีค่าส่ง"
+            active={orderType === "table_service"}
+            onClick={() => setOrderType("table_service")}
           />
         </div>
 
@@ -748,6 +782,18 @@ export function CheckoutFlow() {
           <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
             รับสินค้าได้ที่หน้าร้านหลังร้านอัปเดตสถานะว่าพร้อมให้รับ
           </p>
+        ) : orderType === "table_service" ? (
+          <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+            <Field
+              label="หมายเลข / ชื่อโต๊ะ"
+              value={tableNumber}
+              onChange={setTableNumber}
+              placeholder="เช่น A3, 12, ริมหน้าต่าง"
+            />
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              กรุณาระบุตำแหน่งให้พนักงานนำออเดอร์ไปเสิร์ฟได้ถูกโต๊ะ · ไม่มีค่าจัดส่ง
+            </p>
+          </div>
         ) : (
           <>
             <p className="mt-4 text-sm text-[var(--text-muted)]">
@@ -985,7 +1031,7 @@ export function CheckoutFlow() {
           แลกคะแนน
         </h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          ใช้ {FREE_DRINK_POINTS} คะแนน แลกฟรีราคาเครื่องดื่มหลัก 1 รายการ
+          ใช้ {loyaltySettings.redemptionPoints} คะแนน แลกฟรีราคาเครื่องดื่มหลัก 1 รายการ
           (Topping / Add-on คิดเงินตามปกติ)
         </p>
 
@@ -1001,10 +1047,10 @@ export function CheckoutFlow() {
           <p className="mt-4 rounded-2xl bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
             ยังไม่มีคะแนนสำหรับเบอร์นี้ — สั่งซื้อและรอออเดอร์ COMPLETED เพื่อสะสมคะแนน
           </p>
-        ) : availablePoints < FREE_DRINK_POINTS ? (
+        ) : availablePoints < loyaltySettings.redemptionPoints ? (
           <p className="mt-4 rounded-2xl bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
             คะแนนคงเหลือ {availablePoints} — ต้องมีอย่างน้อย{" "}
-            {FREE_DRINK_POINTS} คะแนน
+            {loyaltySettings.redemptionPoints} คะแนน
           </p>
         ) : (
           <div className="mt-4 space-y-3">
@@ -1013,7 +1059,7 @@ export function CheckoutFlow() {
                 คุณมี {availablePoints} คะแนน ใช้สิทธิ์แลกฟรีไหม?
               </p>
               <p className="mt-1 text-xs text-amber-800">
-                ใช้ {FREE_DRINK_POINTS} คะแนน หักจากราคาเครื่องดื่มหลัก 1 รายการ
+                ใช้ {loyaltySettings.redemptionPoints} คะแนน หักจากราคาเครื่องดื่มหลัก 1 รายการ
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
@@ -1127,9 +1173,23 @@ export function CheckoutFlow() {
                   </p>
                 ) : null}
                 {shop.bankAccountNumber ? (
-                  <p className="mt-1 font-display text-xl font-bold tracking-wide text-[var(--primary)]">
-                    {shop.bankAccountNumber}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <p className="font-display text-xl font-bold tracking-wide text-[var(--primary)]">
+                      {shop.bankAccountNumber}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void copyBankAccountNumber()}
+                      className="rounded-lg border border-[var(--primary)]/30 bg-white px-2.5 py-1 text-xs font-semibold text-[var(--primary)] transition hover:bg-[var(--primary-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                      aria-label="คัดลอกเลขบัญชี"
+                    >
+                      {copyAccountStatus === "success"
+                        ? "คัดลอกแล้ว"
+                        : copyAccountStatus === "error"
+                          ? "คัดลอกไม่สำเร็จ"
+                          : "คัดลอก"}
+                    </button>
+                  </div>
                 ) : null}
                 {shop.bankAccountName ? (
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -1239,7 +1299,11 @@ export function CheckoutFlow() {
           <div className="flex items-center justify-between text-sm">
             <span className="text-[var(--text-muted)]">วิธีรับสินค้า</span>
             <span className="font-medium text-[var(--text)]">
-              {orderType === "pickup" ? "มารับหน้าร้าน" : "จัดส่ง"}
+              {orderType === "pickup"
+                ? "มารับหน้าร้าน"
+                : orderType === "table_service"
+                  ? `ส่งที่โต๊ะ ${tableNumber.trim() || "-"}`
+                  : "จัดส่ง"}
             </span>
           </div>
           {effectiveDeliveryFee !== null ? (
@@ -1267,7 +1331,7 @@ export function CheckoutFlow() {
           ) : null}
           {rewardDiscount > 0 ? (
             <div className="flex items-center justify-between text-sm text-emerald-700">
-              <span>แลกเครื่องดื่มฟรี ({FREE_DRINK_POINTS} คะแนน)</span>
+              <span>แลกเครื่องดื่มฟรี ({loyaltySettings.redemptionPoints} คะแนน)</span>
               <span>-{formatPrice(rewardDiscount)}</span>
             </div>
           ) : null}

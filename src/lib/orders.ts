@@ -61,6 +61,7 @@ export const STATUS_ACTION_LABELS: Partial<Record<DbOrderStatus, string>> = {
 
 export function orderTypeLabel(orderType: DbOrderType | null | undefined) {
   if (orderType === "pickup") return "มารับหน้าร้าน";
+  if (orderType === "table_service") return "ส่งที่โต๊ะ";
   return "จัดส่ง";
 }
 
@@ -68,6 +69,14 @@ export function orderStatusLabelForType(
   status: DbOrderStatus,
   orderType: DbOrderType | null | undefined,
 ) {
+  if (orderType === "table_service") {
+    const tableLabels: Partial<Record<DbOrderStatus, string>> = {
+      READY_FOR_DELIVERY: "พร้อมเสิร์ฟที่โต๊ะ",
+      DELIVERING: "กำลังนำไปเสิร์ฟ",
+      COMPLETED: "เสิร์ฟแล้ว",
+    };
+    return tableLabels[status] ?? ORDER_STATUS_LABELS[status];
+  }
   if (orderType !== "pickup") return ORDER_STATUS_LABELS[status];
 
   const pickupLabels: Partial<Record<DbOrderStatus, string>> = {
@@ -83,6 +92,13 @@ export function statusActionLabelForType(
   status: DbOrderStatus,
   orderType: DbOrderType | null | undefined,
 ) {
+  if (orderType === "table_service") {
+    const tableLabels: Partial<Record<DbOrderStatus, string>> = {
+      DELIVERING: "นำไปเสิร์ฟที่โต๊ะ",
+      COMPLETED: "เสิร์ฟแล้ว",
+    };
+    return tableLabels[status] ?? STATUS_ACTION_LABELS[status] ?? "อัปเดตสถานะ";
+  }
   if (orderType !== "pickup") {
     return STATUS_ACTION_LABELS[status] ?? "อัปเดตสถานะ";
   }

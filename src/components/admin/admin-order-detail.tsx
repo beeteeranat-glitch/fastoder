@@ -110,6 +110,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
 
   const nextStatus = getNextAdminStatus(order.status);
   const isPickup = order.order_type === "pickup";
+  const isTableService = order.order_type === "table_service";
   const deliveryMinimumSurcharge = Math.max(
     0,
     order.payable_total -
@@ -148,6 +149,8 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                   className={`rounded-full px-3 py-1 text-xs font-bold ${
                     isPickup
                       ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                      : isTableService
+                        ? "bg-violet-50 text-violet-700 ring-1 ring-violet-200"
                       : "bg-sky-50 text-sky-700 ring-1 ring-sky-200"
                   }`}
                 >
@@ -156,7 +159,7 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                 <OrderStatusBadge status={order.status} />
               </div>
               <p className="max-w-md break-words text-left text-xs font-medium text-[var(--text-muted)] sm:text-right">
-                {isPickup ? "จุดรับสินค้า" : "ที่อยู่จัดส่ง"}:{" "}
+                {isPickup ? "จุดรับสินค้า" : isTableService ? "โต๊ะ" : "ที่อยู่จัดส่ง"}:{" "}
                 <span className="text-[var(--text)]">{order.delivery_address}</span>
               </p>
             </div>
@@ -408,6 +411,35 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
                 ) : (
                   <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
                     ไม่มีสลิปแนบ (ออเดอร์เก่าก่อนเปิดระบบเก็บสลิป)
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {order.order_type === "delivery" ? (
+              <div className="mt-4 border-t border-[var(--border)] pt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  หลักฐานการส่ง
+                </p>
+                {order.delivery_proof_url ? (
+                  <a
+                    href={order.delivery_proof_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 block overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)]"
+                  >
+                    <Image
+                      src={order.delivery_proof_url}
+                      alt={`หลักฐานการส่งออร์เดอร์ ${order.order_number}`}
+                      width={640}
+                      height={960}
+                      className="max-h-96 w-full object-contain"
+                      unoptimized
+                    />
+                  </a>
+                ) : (
+                  <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    ยังไม่มีรูปหลักฐานการส่ง
                   </p>
                 )}
               </div>

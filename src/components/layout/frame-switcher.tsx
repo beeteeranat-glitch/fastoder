@@ -7,7 +7,8 @@ import { AppFrame } from "@/components/layout/app-frame";
 export function FrameSwitcher({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
+  const isRider = pathname.startsWith("/rider");
 
-  if (isAdmin) return children;
+  if (isAdmin || isRider) return children;
   return <AppFrame>{children}</AppFrame>;
 }

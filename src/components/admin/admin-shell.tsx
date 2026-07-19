@@ -149,6 +149,7 @@ export function AdminShell({
   const router = useRouter();
   const { pendingCount } = useAdminOrderAlerts();
   const [contentKey, setContentKey] = useState(0);
+  const [loggingOut, setLoggingOut] = useState(false);
   const { title, subtitle } = getAdminPageMeta(pathname);
   const ordersBadge = pendingCount;
 
@@ -166,6 +167,16 @@ export function AdminShell({
     event.preventDefault();
     setContentKey((value) => value + 1);
     router.refresh();
+  };
+
+  const logout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/admin/auth/logout", { method: "POST" });
+    } finally {
+      router.replace("/admin-login");
+      router.refresh();
+    }
   };
 
   return (
@@ -209,7 +220,17 @@ export function AdminShell({
                 </p>
               ) : null}
             </div>
-            {action}
+            <div className="flex items-center gap-2">
+              {action}
+              <button
+                type="button"
+                onClick={() => void logout()}
+                disabled={loggingOut}
+                className="rounded-lg px-3 py-2 text-xs font-semibold text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text)] disabled:opacity-60"
+              >
+                {loggingOut ? "กำลังออก..." : "ออกจากระบบ"}
+              </button>
+            </div>
           </div>
 
           <nav

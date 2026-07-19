@@ -8,6 +8,7 @@ export function AdminQrGenerator() {
   const [adminUrl, setAdminUrl] = useState("");
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<"menu" | "admin" | null>(null);
 
   useEffect(() => {
     const origin = window.location.origin;
@@ -32,6 +33,18 @@ export function AdminQrGenerator() {
     link.click();
   };
 
+  const copyUrl = async (url: string, target: "menu" | "admin") => {
+    if (!url) return;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(target);
+      window.setTimeout(() => setCopiedUrl(null), 2_500);
+    } catch {
+      setError("คัดลอกลิงก์ไม่สำเร็จ");
+    }
+  };
+
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
 
@@ -51,12 +64,28 @@ export function AdminQrGenerator() {
         ลูกค้าสแกนเพื่อเปิดเมนูและสั่งซื้อ
       </p>
       <div className="mt-2 grid gap-2">
-        <p className="break-all rounded-xl bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--text-muted)]">
-          {menuUrl}
-        </p>
-        <p className="break-all rounded-xl bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--text-muted)]">
-          {adminUrl}
-        </p>
+        <div className="flex items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-3 py-2">
+          <p className="min-w-0 flex-1 break-all text-xs text-[var(--text-muted)]">{menuUrl}</p>
+          <button
+            type="button"
+            onClick={() => void copyUrl(menuUrl, "menu")}
+            disabled={!menuUrl}
+            className="shrink-0 rounded-lg border border-[var(--primary)]/30 bg-white px-2.5 py-1 text-xs font-semibold text-[var(--primary)] transition hover:bg-[var(--primary-soft)] disabled:opacity-60"
+          >
+            {copiedUrl === "menu" ? "คัดลอกแล้ว" : "คัดลอก"}
+          </button>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl bg-[var(--surface-muted)] px-3 py-2">
+          <p className="min-w-0 flex-1 break-all text-xs text-[var(--text-muted)]">{adminUrl}</p>
+          <button
+            type="button"
+            onClick={() => void copyUrl(adminUrl, "admin")}
+            disabled={!adminUrl}
+            className="shrink-0 rounded-lg border border-[var(--primary)]/30 bg-white px-2.5 py-1 text-xs font-semibold text-[var(--primary)] transition hover:bg-[var(--primary-soft)] disabled:opacity-60"
+          >
+            {copiedUrl === "admin" ? "คัดลอกแล้ว" : "คัดลอก"}
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">

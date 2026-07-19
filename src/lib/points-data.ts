@@ -1,13 +1,11 @@
 import { RESTAURANT } from "@/data/menu";
+import { calcEarnedPoints, DEFAULT_LOYALTY_SETTINGS } from "@/lib/loyalty";
+import { fetchLoyaltySettings } from "@/lib/loyalty-settings-data";
 import { createServerClient } from "@/lib/supabase/server";
 import type { DbPointTransaction } from "@/types/database";
 
-/** 100 บาท = 10 คะแนน */
-export const FREE_DRINK_POINTS = 100;
-
-export function calcEarnedPoints(payableTotal: number) {
-  return Math.max(0, Math.floor(payableTotal / 100) * 10);
-}
+export const FREE_DRINK_POINTS = DEFAULT_LOYALTY_SETTINGS.redemptionPoints;
+export { calcEarnedPoints };
 
 export function calcFreeDrinkDiscount(basePrice: number, quantity: number) {
   return Math.max(0, basePrice * quantity);
@@ -22,7 +20,8 @@ export async function earnPointsOnOrderComplete({
   orderId: string;
   payableTotal: number;
 }) {
-  const points = calcEarnedPoints(payableTotal);
+  const loyaltySettings = await fetchLoyaltySettings();
+  const points = calcEarnedPoints(payableTotal, loyaltySettings);
   if (points <= 0) return;
 
   const supabase = createServerClient();
@@ -76,11 +75,11 @@ export async function earnPointsOnOrderComplete({
 export async function redeemFreeDrinkOnOrder({
   customerId,
   orderId,
-  pointsUsed = FREE_DRINK_POINTS,
+  pointsUsed,
 }: {
   customerId: string;
   orderId: string;
-  pointsUsed?: number;
+  pointsUsed: number;
 }) {
   const supabase = createServerClient();
 

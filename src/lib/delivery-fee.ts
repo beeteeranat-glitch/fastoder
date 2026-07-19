@@ -77,7 +77,7 @@ export function calcDeliveryFeeFromSettings(
 
 export function calcDeliveryMinimumSurcharge(
   foodTotal: number,
-  orderType: "delivery" | "pickup" = "delivery",
+  orderType: "delivery" | "pickup" | "table_service" = "delivery",
 ) {
   if (orderType !== "delivery") return 0;
   return Math.max(0, DELIVERY_MINIMUM_FOOD_TOTAL - foodTotal);

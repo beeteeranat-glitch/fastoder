@@ -15,6 +15,8 @@ const WEEKDAYS = [
   { value: 0, label: "อาทิตย์" },
 ];
 
+type ClosureMode = "permanent" | "scheduled";
+
 function digitsOnly(value: string) {
   return value.replace(/[^\d.]/g, "");
 }
@@ -57,6 +59,9 @@ export function AdminShopSettings() {
   const [paymentQrUrl, setPaymentQrUrl] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
   const [openDays, setOpenDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [openingTime, setOpeningTime] = useState("09:00");
+  const [closingTime, setClosingTime] = useState("18:00");
+  const [closureMode, setClosureMode] = useState<ClosureMode>("permanent");
   const [closeMinutes, setCloseMinutes] = useState("30");
   const [deliveryMinMeters, setDeliveryMinMeters] = useState("500");
   const [deliveryMaxMeters, setDeliveryMaxMeters] = useState("2000");
@@ -80,6 +85,9 @@ export function AdminShopSettings() {
       setPaymentQrUrl(data.shop.paymentQrUrl);
       setIsOpen(data.shop.isManuallyOpen ?? data.shop.isOpen);
       setOpenDays(data.shop.openDays);
+      setOpeningTime(data.shop.openingTime);
+      setClosingTime(data.shop.closingTime);
+      setClosureMode(data.shop.closingUntil ? "scheduled" : "permanent");
       setDeliveryMinMeters(String(data.shop.deliveryMinMeters));
       setDeliveryMaxMeters(String(data.shop.deliveryMaxMeters));
       setDeliveryBlockMeters(String(data.shop.deliveryBlockMeters));
@@ -112,16 +120,28 @@ export function AdminShopSettings() {
     setSuccess(null);
     setError(null);
     try {
-      const minutes = Math.max(0, Math.round(Number(closeMinutes) || 0));
-      const closingUntil = !isOpen && minutes > 0
-        ? new Date(Date.now() + minutes * 60000).toISOString()
-        : null;
+      const minutes = Math.round(Number(closeMinutes));
+      if (
+        !isOpen &&
+        closureMode === "scheduled" &&
+        (!Number.isFinite(minutes) || minutes < 1)
+      ) {
+        throw new Error("ระบุระยะเวลาปิดอย่างน้อย 1 นาที");
+      }
+      const closingUntil =
+        !isOpen && closureMode === "scheduled"
+          ? new Date(Date.now() + minutes * 60000).toISOString()
+          : null;
       const minMeters = parseMeters(deliveryMinMeters, "ระยะเริ่มต้นจัดส่ง");
       const maxMeters = parseMeters(deliveryMaxMeters, "ระยะส่งสูงสุด");
       const blockMeters = parseMeters(deliveryBlockMeters, "ช่วงปัดระยะ");
 
       if (maxMeters < minMeters) {
         throw new Error("ระยะส่งสูงสุดต้องมากกว่าหรือเท่ากับระยะเริ่มต้น");
+      }
+
+      if (!openingTime || !closingTime || openingTime >= closingTime) {
+        throw new Error("เวลาเปิดต้องมาก่อนเวลาปิด");
       }
 
       const res = await fetch("/api/admin/restaurant", {
@@ -135,6 +155,8 @@ export function AdminShopSettings() {
           is_open: isOpen,
           closing_until: closingUntil,
           open_days: openDays,
+          opening_time: openingTime,
+          closing_time: closingTime,
           logo_url: logoUrl,
           bank_name: bankName,
           bank_account_number: bankAccountNumber,
@@ -307,7 +329,7 @@ export function AdminShopSettings() {
           เลือกสถานะว่าให้ลูกค้าเห็นร้านเปิดหรือปิดรับออเดอร์
         </p>
         <div className="mt-4 space-y-3">
-          <label className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm transition hover:border-[var(--primary)]">
+          <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-sm transition hover:border-[var(--primary)]">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-[var(--text)]">
@@ -335,25 +357,81 @@ export function AdminShopSettings() {
               </button>
             </div>
             {!isOpen ? (
-              <div className="rounded-2xl border border-[var(--border)] bg-white p-4">
-                <label className="flex items-center gap-3 text-sm font-semibold text-[var(--text)]">
-                  ปิดชั่วคราวเป็นเวลา
-                  <input
-                    type="text"
-                    value={closeMinutes}
-                    onChange={(event) =>
-                      setCloseMinutes(digitsOnly(event.target.value))
-                    }
-                    className="w-20 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm text-right tabular-nums"
-                  />
-                  นาที
-                </label>
-                <p className="mt-2 text-xs text-[var(--text-muted)]">
-                  ใส่ 0 ถ้าต้องการปิดจนกว่าจะเปิดเอง
-                </p>
-              </div>
+              <fieldset className="rounded-2xl border border-[var(--border)] bg-white p-4">
+                <legend className="px-1 text-sm font-semibold text-[var(--text)]">
+                  รูปแบบการปิดรับออเดอร์
+                </legend>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <label
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                      closureMode === "permanent"
+                        ? "border-rose-300 bg-rose-50"
+                        : "border-[var(--border)] bg-[var(--surface)]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="closure-mode"
+                      value="permanent"
+                      checked={closureMode === "permanent"}
+                      onChange={() => setClosureMode("permanent")}
+                      className="mt-0.5 h-4 w-4 accent-rose-600"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-[var(--text)]">
+                        ปิดถาวร
+                      </span>
+                      <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                        ปิดจนกว่าจะกลับมาเปิดรับออเดอร์เอง
+                      </span>
+                    </span>
+                  </label>
+                  <label
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                      closureMode === "scheduled"
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)]"
+                        : "border-[var(--border)] bg-[var(--surface)]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="closure-mode"
+                      value="scheduled"
+                      checked={closureMode === "scheduled"}
+                      onChange={() => setClosureMode("scheduled")}
+                      className="mt-0.5 h-4 w-4 accent-[var(--primary)]"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-[var(--text)]">
+                        ปิดตามเวลา
+                      </span>
+                      <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                        ระบบจะเปิดรับออเดอร์ให้อัตโนมัติ
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                {closureMode === "scheduled" ? (
+                  <label className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-[var(--text)]">
+                    ปิดเป็นเวลา
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={closeMinutes}
+                      onChange={(event) =>
+                        setCloseMinutes(wholeDigitsOnly(event.target.value))
+                      }
+                      className="w-24 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-right text-sm tabular-nums"
+                    />
+                    นาที
+                    <span className="basis-full text-xs font-normal text-[var(--text-muted)]">
+                      เมื่อครบกำหนด ร้านจะกลับมาเปิดรับออเดอร์อัตโนมัติ
+                    </span>
+                  </label>
+                ) : null}
+              </fieldset>
             ) : null}
-          </label>
+          </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -404,6 +482,40 @@ export function AdminShopSettings() {
                   </label>
                 );
               })}
+            </div>
+            <div className="mt-4 border-t border-[var(--border)] pt-4">
+              <div>
+                <p className="text-sm font-semibold text-[var(--text)]">
+                  เวลาเปิด–ปิด
+                </p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  ลูกค้าจะสั่งซื้อได้เฉพาะช่วงเวลานี้ตามเวลาในประเทศไทย
+                </p>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--text-muted)]">
+                    เวลาเปิด
+                  </span>
+                  <input
+                    type="time"
+                    value={openingTime}
+                    onChange={(event) => setOpeningTime(event.target.value)}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm tabular-nums"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--text-muted)]">
+                    เวลาปิด
+                  </span>
+                  <input
+                    type="time"
+                    value={closingTime}
+                    onChange={(event) => setClosingTime(event.target.value)}
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm tabular-nums"
+                  />
+                </label>
+              </div>
             </div>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { adjustCustomerOnOrderStatusChange } from "@/lib/customer-data";
 import { lookupReferrerInDb } from "@/lib/referrer-lookup";
 import { createServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { withSignedOrderMedia } from "@/lib/private-order-files";
 import type { DbOrderStatus } from "@/types/database";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -51,7 +52,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 
   return NextResponse.json({
-    order,
+    order: await withSignedOrderMedia(order),
     items: items ?? [],
     referrerDisplayName,
   });

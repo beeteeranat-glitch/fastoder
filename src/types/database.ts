@@ -7,7 +7,7 @@ export type DbOrderStatus =
   | "COMPLETED"
   | "CANCELLED";
 
-export type DbOrderType = "delivery" | "pickup";
+export type DbOrderType = "delivery" | "pickup" | "table_service";
 
 export type DbRestaurant = {
   id: string;
@@ -21,6 +21,8 @@ export type DbRestaurant = {
   is_open: boolean;
   closing_until: string | null;
   open_days: number[] | null;
+  opening_time: string;
+  closing_time: string;
   logo_url: string | null;
   bank_name: string | null;
   bank_account_number: string | null;
@@ -117,6 +119,7 @@ export type DbOrder = {
   customer_name: string;
   customer_phone: string;
   order_type: DbOrderType;
+  table_number: string | null;
   customer_note: string | null;
   delivery_address: string;
   delivery_latitude: number | null;
@@ -128,6 +131,7 @@ export type DbOrder = {
   payable_total: number;
   payment_method: "cash" | "transfer";
   payment_slip_url: string | null;
+  delivery_proof_url: string | null;
   promo_code: string | null;
   referrer_code: string | null;
   points_earned?: number;

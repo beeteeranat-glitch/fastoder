@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useCustomerAuth } from "@/context/customer-auth-context";
+import { useLoyaltySettings } from "@/hooks/use-loyalty-settings";
 import { formatOrderDate } from "@/lib/orders";
-import { FREE_DRINK_POINTS } from "@/lib/points-data";
 import type { DbPointTransaction, DbRewardRedemption } from "@/types/database";
 
 export function RewardsView() {
   const { customer, loading: authLoading } = useCustomerAuth();
+  const loyaltySettings = useLoyaltySettings();
   const [transactions, setTransactions] = useState<DbPointTransaction[]>([]);
   const [redemptions, setRedemptions] = useState<DbRewardRedemption[]>([]);
   const [promos, setPromos] = useState<
@@ -63,7 +64,7 @@ export function RewardsView() {
     );
   }
 
-  const canRedeem = customer.points >= FREE_DRINK_POINTS;
+  const canRedeem = customer.points >= loyaltySettings.redemptionPoints;
 
   return (
     <div className="space-y-4">
@@ -77,7 +78,7 @@ export function RewardsView() {
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="font-display text-lg font-bold">แลกเครื่องดื่มฟรี</h2>
         <p className="mt-2 text-sm text-[var(--text-muted)]">
-          สะสม 10 คะแนนทุก 100 บาท · ใช้ {FREE_DRINK_POINTS} คะแนน ต่อ 1 สิทธิ์ ·
+          สะสม {loyaltySettings.earnPoints} คะแนนทุก {loyaltySettings.earnSpendAmount} บาท · ใช้ {loyaltySettings.redemptionPoints} คะแนน ต่อ 1 สิทธิ์ ·
           ครอบคลุมราคาเครื่องดื่มหลัก Topping และ Add-on คิดเงินเพิ่มตามปกติ
         </p>
         <p
@@ -89,7 +90,7 @@ export function RewardsView() {
         >
           {canRedeem
             ? "พร้อมแลกสิทธิ์ — เลือกใช้ตอน Checkout"
-            : `ต้องมีอย่างน้อย ${FREE_DRINK_POINTS} คะแนน`}
+            : `ต้องมีอย่างน้อย ${loyaltySettings.redemptionPoints} คะแนน`}
         </p>
         <Link
           href="/menu"

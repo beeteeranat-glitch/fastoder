@@ -14,9 +14,9 @@ import { generateOrderNumber } from "@/lib/orders";
 import { fetchCustomerByPhone, upsertCustomerOnOrder } from "@/lib/customer-data";
 import {
   calcFreeDrinkDiscount,
-  FREE_DRINK_POINTS,
   redeemFreeDrinkOnOrder,
 } from "@/lib/points-data";
+import { fetchLoyaltySettings } from "@/lib/loyalty-settings-data";
 import {
   calcDiscountForPromo,
   fetchPromoByCode,
@@ -29,6 +29,7 @@ import { lookupReferrerInDb } from "@/lib/referrer-lookup";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { createServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { isPrivateOrderFilePath } from "@/lib/private-order-files";
 import { fetchRestaurantFromDb } from "@/lib/restaurant-data";
 import type { DbOrderItem } from "@/types/database";
 import type { DbOrderType } from "@/types/database";
@@ -50,6 +51,7 @@ type CreateOrderBody = {
   customerPhone: string;
   customerNote?: string;
   orderType?: DbOrderType;
+  tableNumber?: string | null;
   deliveryAddress: string;
   deliveryLatitude: number;
   deliveryLongitude: number;
@@ -125,11 +127,23 @@ export async function POST(request: NextRequest) {
   if (body.paymentMethod === "transfer" && !paymentSlipUrl) {
     return badRequest("กรุณาแนบสลิปโอนเงิน");
   }
+  if (paymentSlipUrl && !isPrivateOrderFilePath(paymentSlipUrl)) {
+    return badRequest("ไฟล์สลิปไม่ถูกต้อง กรุณาอัปโหลดใหม่");
+  }
   if (body.paymentMethod === "cash" && paymentSlipUrl) {
     return badRequest("ออเดอร์เงินสดไม่ต้องแนบสลิป");
   }
 
-  const orderType: DbOrderType = body.orderType === "pickup" ? "pickup" : "delivery";
+  const orderType: DbOrderType =
+    body.orderType === "pickup"
+      ? "pickup"
+      : body.orderType === "table_service"
+        ? "table_service"
+        : "delivery";
+  const tableNumber = body.tableNumber?.trim() || null;
+  if (orderType === "table_service" && !tableNumber) {
+    return badRequest("กรุณาระบุหมายเลขหรือชื่อโต๊ะ");
+  }
 
   const deliverySettingsResponse = await fetchDeliverySettingsFromDb();
   const deliverySettings = deliverySettingsResponse
@@ -196,10 +210,14 @@ export async function POST(request: NextRequest) {
 
   let rewardDiscount = 0;
   let rewardCustomerId: string | null = null;
+  const loyaltySettings = await fetchLoyaltySettings();
 
   if (body.useFreeDrinkReward) {
     const rewardCustomer = await fetchCustomerByPhone(customerPhone);
-    if (!rewardCustomer || (rewardCustomer.points ?? 0) < FREE_DRINK_POINTS) {
+    if (
+      !rewardCustomer ||
+      (rewardCustomer.points ?? 0) < loyaltySettings.redemptionPoints
+    ) {
       return badRequest("คะแนนไม่เพียงพอสำหรับแลกเครื่องดื่มฟรี");
     }
 
@@ -260,6 +278,7 @@ export async function POST(request: NextRequest) {
       customer_name: body.customerName.trim(),
       customer_phone: customerPhone,
       order_type: orderType,
+      ...(orderType === "table_service" ? { table_number: tableNumber } : {}),
       customer_note: body.customerNote?.trim() || null,
       delivery_address: body.deliveryAddress.trim(),
       delivery_latitude: body.deliveryLatitude,
@@ -346,6 +365,7 @@ export async function POST(request: NextRequest) {
       await redeemFreeDrinkOnOrder({
         customerId: rewardCustomerId,
         orderId: order.id,
+        pointsUsed: loyaltySettings.redemptionPoints,
       });
     } catch (error) {
       console.error("redeem on order error:", error);

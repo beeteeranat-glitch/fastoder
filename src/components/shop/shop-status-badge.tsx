@@ -37,12 +37,12 @@ export function ShopStatusBadge({ shop, compact = false }: ShopStatusBadgeProps)
   const text = shop.isOpen
     ? compact
       ? "เปิดรับออเดอร์"
-      : "ร้านเปิดรับออเดอร์"
+      : `ร้านเปิดรับออเดอร์ · ถึง ${shop.closingTime} น.`
     : remainingMinutes !== null && remainingMinutes > 0
       ? `ปิดรับออเดอร์อีก ${remainingMinutes} นาที`
       : compact
         ? "ปิดรับออเดอร์"
-        : "ร้านปิดรับออเดอร์";
+        : `ร้านปิดรับออเดอร์ · ${shop.openingTime}–${shop.closingTime} น.`;
 
   return (
     <span
